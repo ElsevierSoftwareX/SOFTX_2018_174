@@ -12,6 +12,11 @@ def errorCallback(error, description):
     print('Error %s, %s' % (error, description))
 
 class glfwApp(object):
+    
+    KEY_G = glfw.KEY_G
+    PRESS = glfw.PRESS
+    RELEASE = glfw.RELEASE
+    
     def __init__(self, title='', width=800, height=600):
 
         self._width = width
@@ -60,9 +65,11 @@ class glfwApp(object):
         :param mode: modifiers
         :return:
         """
+        
         if key in (glfw.KEY_ESCAPE, glfw.KEY_Q):
             glfw.set_window_should_close(self._window, 1)
-        self._camera.onKeyboard(key)
+        glfw.poll_events()            
+        #self._camera.onKeyboard(key)
         # print(key, scancode, actionMap.get(action), mode)
 
     def onMouseMove(self, window, x, y):

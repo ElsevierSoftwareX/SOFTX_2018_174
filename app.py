@@ -6,9 +6,6 @@ from PIL import Image
 import signal
 signal.signal(signal.SIGINT, signal.SIG_DFL)
 
-# Gui
-import tkinter as tk
-
 import OpenGL.GL as gl
 from glfwBackend import glfwApp
 import imgui
@@ -75,6 +72,24 @@ def userInterface(renderer, graphicItem):
     if dropChanged:
         graphicItem.setDropRate(dropRate)
 
+    # Drop Rate Bump
+    dropBumpChanged, dropRateBump = imgui.slider_float('Drop rate bump',
+        graphicItem.dropRateBump(), 0, 0.1)
+    if dropBumpChanged:
+        graphicItem.setDropRateBump(dropRateBump)
+
+    # Unbknown const
+    unknownChanged, unknown = imgui.slider_float('Unknown const',
+        graphicItem.unknown(), 0, 0.01, '%.4f')
+    if unknownChanged:
+        graphicItem.setUnknown(unknown)
+
+    # Unbknown const
+    opacityChanged, opacity = imgui.slider_float('Opacity',
+        graphicItem.opacity(), 0.900, 0.999, '%.4f')
+    if opacityChanged:
+        graphicItem.setOpacity(opacity)
+
     # Palette
     r, g, b = graphicItem.color()
     colorChanged, color = imgui.color_edit3('Color', r, g, b)
@@ -96,10 +111,15 @@ def userInterface(renderer, graphicItem):
         graphicItem.setPointSize(pointSize)
 
     # Number of Points
-    pointsCountChanged, pointsCount = imgui.drag_int("Number of "
-        "Points", graphicItem.pointsCount(), 4096.0, 64, 10000000)
-    if pointsCountChanged:
-        graphicItem.setPointsCount(pointsCount)
+    tracersCountChanged, tracersCount = imgui.drag_int("Number of "
+        "Tracers", graphicItem.tracersCount(), 4096.0, 64, 1000000)
+    if tracersCountChanged:
+        graphicItem.setTracersCount(tracersCount)
+        
+    # Periodic border
+    clicked, periodic = imgui.checkbox("Periodic", graphicItem.periodic())
+    if clicked:
+        graphicItem.setPeriodic(periodic)       
 
     imgui.end()
     imgui.render()
@@ -110,10 +130,14 @@ class GLApp(glfwApp):
         super(GLApp, self).__init__(title, width, height)
 
         if options.gui:
-            self._renderer = GlfwRenderer(self.window())
+            self._renderer = GlfwRenderer(self.window(), False)
         else:
             self._renderer = None
-
+        
+        vx = field[:,:,0]
+        vy = field[:,:,1]
+        module = np.hypot(field[:,:,0], field[:,:,1])
+        
         # Add Field Animation overlay
         self._fa = FieldAnimation(width, height, field)
 
@@ -121,6 +145,20 @@ class GLApp(glfwApp):
         super(GLApp, self).renderScene()
         self._fa.draw()
         userInterface(self._renderer, self._fa)
+        
+        
+        
+    def onKeyboard(self, window, key, scancode, action, mode):
+        if key == GLApp.KEY_G and action == GLApp.PRESS:
+            if self._renderer is None:
+                self._renderer = GlfwRenderer(self.window(), False)
+                self._renderer.process_inputs()
+            else:
+                self._renderer.shutdown()
+                self._renderer = None
+        
+        super(GLApp, self).onKeyboard(window, key, scancode, action, mode)
+        
 
 #------------------------------------------------------------------------------
 if __name__ == "__main__":

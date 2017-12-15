@@ -3,15 +3,16 @@ from PIL import Image
 import numpy as np
 
 class Texture(object):
-    def __init__(self, filename='', data=None,  width=None, height=None, filt=gl.GL_NEAREST):
+    def __init__(self, filename='', data=None,  width=None, height=None, filt=gl.GL_NEAREST, fmt=gl.GL_RGB, ifmt=gl.GL_RGBA,
+                 dtype=gl.GL_UNSIGNED_BYTE):
 
         if filename:
             img = Image.open(filename)
             img = img.convert('RGBA')
             data = np.asarray(img, dtype=np.uint8)
-        if (filename and data is not None) or (filename is None and data is None):
-            print('Set filename or data not both!')
-            raise SystemExit
+        #if (filename and data is not None) or (filename is None and data is None):
+            #print('Set filename or data not both!')
+            #raise SystemExit
 
         self._data = data
         self._filename = filename
@@ -22,10 +23,15 @@ class Texture(object):
         else:
             self._format = gl.GL_RGBA
 
-
         # format of loaded image
         self._image_format = self._format
-
+        
+        if dtype == gl.GL_FLOAT:
+            self._image_format = gl.GL_RED
+            self._format = gl.GL_R32F
+            
+        self._dtype = dtype
+        
         # Texture configuration
         ## Filtering mode if texture pixels < screen pixels
         self._filter_min = filt
@@ -60,7 +66,7 @@ class Texture(object):
         gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_WRAP_T, gl.GL_CLAMP_TO_EDGE);
         gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MIN_FILTER, self._filter_min);
         gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MAG_FILTER, self._filter_max);
-        gl.glTexImage2D(gl.GL_TEXTURE_2D, 0, self._format, w, h, 0, self._image_format, gl.GL_UNSIGNED_BYTE, data)
+        gl.glTexImage2D(gl.GL_TEXTURE_2D, 0, self._format, w, h, 0, self._image_format, self._dtype, data)
         # Unbind texture
         gl.glBindTexture(gl.GL_TEXTURE_2D, 0);
 

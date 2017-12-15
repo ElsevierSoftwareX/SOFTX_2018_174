@@ -2,9 +2,7 @@
 
 const float pi = 3.141592653589793238462643383279;
 
-uniform sampler2D u_wind;
-uniform vec2 u_wind_min;
-uniform vec2 u_wind_max;
+uniform sampler2D gMap;
 
 // CubeHelix parameters
 // START colour (1=red, 2=green, 3=blue; e.g. 0.5=purple);
@@ -22,11 +20,9 @@ uniform float minLight;
 uniform float maxLight;
 uniform float startHue;
 uniform float endHue;
-uniform bool palette;
 
-
-in vec2 v_particle_pos;
 out vec4 fragColor;
+in vec2 texCoords0;
 
 vec3 cubeHelix(float x)
 {
@@ -79,16 +75,44 @@ vec3 cubeHelix(float x)
 
 }
 
-void main() {
-    vec2 velocity = mix(u_wind_min, u_wind_max, texture(u_wind, v_particle_pos).rg);
-    float speed_t = length(velocity) / length(u_wind_max);
 
-    if (palette){
-        fragColor = vec4(cubeHelix(speed_t), 1.0);
-        }
-    else
-    {
-        fragColor = vec4(1.0, 1.0, 1.0, 1.0);
+float jet_red(float x) {
+    if (x < 0.7) {
+        return 4.0 * x - 1.5;
+    } else {
+        return -4.0 * x + 4.5;
     }
+}
 
+float jet_green(float x) {
+    if (x < 0.5) {
+        return 4.0 * x - 0.5;
+    } else {
+        return -4.0 * x + 3.5;
+    }
+}
+
+float jet_blue(float x) {
+    if (x < 0.3) {
+       return 4.0 * x + 0.5;
+    } else {
+       return -4.0 * x + 2.5;
+    }
+}
+
+vec3 jet(float x) {
+    float r = clamp(jet_red(x), 0.0, 1.0);
+    float g = clamp(jet_green(x), 0.0, 1.0);
+    float b = clamp(jet_blue(x), 0.0, 1.0);
+
+    return vec3(r, g, b);
+}
+
+
+void main()
+ {   
+     float value = texture(gMap, texCoords0).r;
+    //fragColor = vec4(jet(value), 1.0);
+    fragColor = vec4(cubeHelix(value), 1.0);
+//     fragColor = vec4(texture(gMap, texCoords0).xyz, 1.0);
 }

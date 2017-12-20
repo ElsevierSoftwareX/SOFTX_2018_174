@@ -2,9 +2,9 @@
 
 const float pi = 3.141592653589793238462643383279;
 
-uniform sampler2D u_wind;
-uniform vec2 u_wind_min;
-uniform vec2 u_wind_max;
+uniform sampler2D u_field;
+uniform vec2 u_fieldMin;
+uniform vec2 u_fieldMax;
 
 // CubeHelix parameters
 // START colour (1=red, 2=green, 3=blue; e.g. 0.5=purple);
@@ -24,8 +24,7 @@ uniform float startHue;
 uniform float endHue;
 uniform bool palette;
 
-
-in vec2 v_particle_pos;
+in vec2 tracerPos;
 out vec4 fragColor;
 
 vec3 cubeHelix(float x)
@@ -80,8 +79,8 @@ vec3 cubeHelix(float x)
 }
 
 void main() {
-    vec2 velocity = mix(u_wind_min, u_wind_max, texture(u_wind, v_particle_pos).rg);
-    float speed_t = length(velocity) / length(u_wind_max);
+    vec2 velocity = mix(u_fieldMin, u_fieldMax, texture(u_field, tracerPos).rg);
+    float speed_t = length(velocity) / length(u_fieldMax);
 
     if (palette){
         fragColor = vec4(cubeHelix(speed_t), 1.0);

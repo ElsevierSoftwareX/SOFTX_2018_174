@@ -76,43 +76,9 @@ vec3 cubeHelix(float x)
 }
 
 
-float jet_red(float x) {
-    if (x < 0.7) {
-        return 4.0 * x - 1.5;
-    } else {
-        return -4.0 * x + 4.5;
-    }
-}
-
-float jet_green(float x) {
-    if (x < 0.5) {
-        return 4.0 * x - 0.5;
-    } else {
-        return -4.0 * x + 3.5;
-    }
-}
-
-float jet_blue(float x) {
-    if (x < 0.3) {
-       return 4.0 * x + 0.5;
-    } else {
-       return -4.0 * x + 2.5;
-    }
-}
-
-vec3 jet(float x) {
-    float r = clamp(jet_red(x), 0.0, 1.0);
-    float g = clamp(jet_green(x), 0.0, 1.0);
-    float b = clamp(jet_blue(x), 0.0, 1.0);
-
-    return vec3(r, g, b);
-}
-
-
+//-----------------------------------------------------------------------------
 void main()
- {   
-     float value = texture(gMap, texCoords0).r;
-    //fragColor = vec4(jet(value), 1.0);
+ {
+    float value = texture(gMap, texCoords0).r;
     fragColor = vec4(cubeHelix(value), 1.0);
-//     fragColor = vec4(texture(gMap, texCoords0).xyz, 1.0);
 }

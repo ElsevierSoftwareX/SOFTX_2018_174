@@ -4,6 +4,7 @@ import argparse
 import numpy as np
 from PIL import Image
 import signal
+import time
 signal.signal(signal.SIGINT, signal.SIG_DFL)
 
 import OpenGL.GL as gl
@@ -60,66 +61,71 @@ def userInterface(renderer, graphicItem):
     imgui.new_frame()
     imgui.begin('Controls', closable=True,
             flags=imgui.WINDOW_ALWAYS_AUTO_RESIZE)
+
     # Speed Rate
-    speedChanged, speed = imgui.slider_float('Speed',
-        graphicItem.speedFactor(), 0, 10.0)
-    if speedChanged:
-        graphicItem.setSpeedFactor(speed)
+    changed, speed = imgui.slider_float('Speed',
+        graphicItem.speedFactor, 0, 10.0)
+    if changed:
+        graphicItem.speedFactor = speed
 
     # Drop Rate
-    dropChanged, dropRate = imgui.slider_float('Drop rate',
-        graphicItem.dropRate(), 0, 0.1)
-    if dropChanged:
-        graphicItem.setDropRate(dropRate)
+    changed, dropRate = imgui.slider_float('Drop rate',
+        graphicItem.dropRate, 0, 0.1)
+    if changed:
+        graphicItem.dropRate = dropRate
 
     # Drop Rate Bump
-    dropBumpChanged, dropRateBump = imgui.slider_float('Drop rate bump',
-        graphicItem.dropRateBump(), 0, 0.1)
-    if dropBumpChanged:
-        graphicItem.setDropRateBump(dropRateBump)
+    changed, dropRateBump = imgui.slider_float('Drop rate bump',
+        graphicItem.dropRateBump, 0, 0.1)
+    if changed:
+        graphicItem.dropRateBump = dropRateBump
+
+    # Field Scaling
+    changed, fieldScaling = imgui.slider_float('Field Scaling',
+        graphicItem.fieldScaling, 0, 0.01, '%.4f')
+    if changed:
+        graphicItem.fieldScaling = fieldScaling
 
     # Unbknown const
-    unknownChanged, unknown = imgui.slider_float('Unknown const',
-        graphicItem.unknown(), 0, 0.01, '%.4f')
-    if unknownChanged:
-        graphicItem.setUnknown(unknown)
-
-    # Unbknown const
-    opacityChanged, opacity = imgui.slider_float('Opacity',
-        graphicItem.opacity(), 0.900, 0.999, '%.4f')
-    if opacityChanged:
-        graphicItem.setOpacity(opacity)
+    changed, opacity = imgui.slider_float('Opacity',
+        graphicItem.fadeOpacity, 0.900, 0.999, '%.4f')
+    if changed:
+        graphicItem.fadeOpacity = opacity
 
     # Palette
-    r, g, b = graphicItem.color()
-    colorChanged, color = imgui.color_edit3('Color', r, g, b)
-    if colorChanged:
-        graphicItem.setColor(color)
+    changed, color = imgui.color_edit3('Color', *graphicItem.color)
+    if changed:
+        graphicItem.color = color
     imgui.same_line()
-    clicked, palette = imgui.checkbox("Palette", graphicItem.palette())
-    if clicked:
-        graphicItem.setPalette(palette)
+    changed, palette = imgui.checkbox("Palette", graphicItem.palette)
+    if changed:
+        graphicItem.palette = palette
 
     # Point size
-    pointSizeChanged, pointSize = imgui.input_int("Point size",
-        graphicItem.pointSize(), 1, 1, 1)
-    if pointSizeChanged:
+    changed, pointSize = imgui.input_int("Point size",
+        graphicItem.pointSize, 1, 1, 1)
+    if changed:
         if pointSize > 5:
             pointSize = 5
         elif pointSize < 1:
             pointSize = 1
-        graphicItem.setPointSize(pointSize)
+        graphicItem.pointSize = pointSize
 
     # Number of Points
-    tracersCountChanged, tracersCount = imgui.drag_int("Number of "
-        "Tracers", graphicItem.tracersCount(), 4096.0, 64, 1000000)
-    if tracersCountChanged:
-        graphicItem.setTracersCount(tracersCount)
-        
+    changed, tracersCount = imgui.drag_int("Number of "
+        "Tracers", graphicItem.tracersCount, 4096.0, 64, 1000000)
+    if changed:
+        graphicItem.tracersCount = tracersCount
+
     # Periodic border
-    clicked, periodic = imgui.checkbox("Periodic", graphicItem.periodic())
-    if clicked:
-        graphicItem.setPeriodic(periodic)       
+    changed, periodic = imgui.checkbox("Periodic", graphicItem.periodic)
+    if changed:
+        graphicItem.periodic = periodic
+
+    # Draw field
+    changed, drawfield = imgui.checkbox("Draw Field", graphicItem.drawField)
+    if changed:
+        graphicItem.drawField = drawfield
 
     imgui.end()
     imgui.render()
@@ -133,32 +139,43 @@ class GLApp(glfwApp):
             self._renderer = GlfwRenderer(self.window(), False)
         else:
             self._renderer = None
-        
-        vx = field[:,:,0]
-        vy = field[:,:,1]
-        module = np.hypot(field[:,:,0], field[:,:,1])
-        
+
         # Add Field Animation overlay
         self._fa = FieldAnimation(width, height, field)
+        if options.draw_field:
+            self._fa.drawField = True
+        self._t0 = time.time()
+        self._fps = 0
+        self.options = options
 
     def renderScene(self):
         super(GLApp, self).renderScene()
         self._fa.draw()
+        self._fps += 1
         userInterface(self._renderer, self._fa)
-        
-        
-        
+        now = time.time()
+        if now - self._t0 >= 1:
+            if self.options.fps:
+                print("FPS=", self._fps)
+            self._fps = 0
+            self._t0 = time.time()
+
+
     def onKeyboard(self, window, key, scancode, action, mode):
         if key == GLApp.KEY_G and action == GLApp.PRESS:
+            # Draw the GUI
             if self._renderer is None:
                 self._renderer = GlfwRenderer(self.window(), False)
                 self._renderer.process_inputs()
             else:
                 self._renderer.shutdown()
                 self._renderer = None
-        
+        elif key == GLApp.KEY_F and action == GLApp.PRESS:
+            # Draw the field
+            self._fa.drawField = not self._fa.drawField
+
         super(GLApp, self).onKeyboard(window, key, scancode, action, mode)
-        
+
 
 #------------------------------------------------------------------------------
 if __name__ == "__main__":
@@ -168,9 +185,17 @@ if __name__ == "__main__":
             formatter_class=argparse.ArgumentDefaultsHelpFormatter,
             prog=os.path.basename(sys.argv[0]))
 
-    parser.add_argument('-f', '--field', choices="epole wind".split(),
+    parser.add_argument('-f', '--draw_field', action='store_true',
+            default=False,
+            help=("Draw vector field as background image ")
+            )
+    parser.add_argument('-c', '--choose', choices="epole wind".split(),
             default="wind",
             help=("Choose field to animate ")
+            )
+
+    parser.add_argument('-p', '--fps', action='store_true', default=False,
+            help=("Count Frames Per Second ")
             )
 
     parser.add_argument('-g', '--gui', action='store_true', default=False,
@@ -179,9 +204,9 @@ if __name__ == "__main__":
 
     options = parser.parse_args(sys.argv[1:])
 
-    if options.field == 'wind':
+    if options.choose == 'wind':
         field = np.load("wind_2016-11-20T00-00Z.npy")
-    elif options.field == 'epole':
+    elif options.choose == 'epole':
         field = createField()
 
     app = GLApp('Field Animation', 360 * 3, 180 * 3, field, options)

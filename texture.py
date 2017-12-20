@@ -3,76 +3,73 @@ from PIL import Image
 import numpy as np
 
 class Texture(object):
-    def __init__(self, filename='', data=None,  width=None, height=None, filt=gl.GL_NEAREST, fmt=gl.GL_RGB, ifmt=gl.GL_RGBA,
-                 dtype=gl.GL_UNSIGNED_BYTE):
+    def __init__(self, data=None,  width=None, height=None,
+                filt=gl.GL_NEAREST, dtype=gl.GL_UNSIGNED_BYTE):
+        """ Texture object.
+            `data` can be an RGBA image file name or a 2D or 3D array.
+            If data is None an empty texture will be created
+        """
 
-        if filename:
-            img = Image.open(filename)
+        try:
+            img = Image.open(data)
             img = img.convert('RGBA')
-            data = np.asarray(img, dtype=np.uint8)
-        #if (filename and data is not None) or (filename is None and data is None):
-            #print('Set filename or data not both!')
-            #raise SystemExit
-
-        self._data = data
-        self._filename = filename
+            self._data = np.asarray(img, dtype=np.uint8)
+        except AttributeError:
+            self._data = data
 
         # format of texture object
-        if data.ndim > 2 and data.shape[2] == 3:
+        if self._data.ndim > 2 and self._data.shape[2] == 3:
             self._format = gl.GL_RGB
         else:
             self._format = gl.GL_RGBA
 
-        # format of loaded image
-        self._image_format = self._format
-        
         if dtype == gl.GL_FLOAT:
-            self._image_format = gl.GL_RED
             self._format = gl.GL_R32F
-            
-        self._dtype = dtype
-        
-        # Texture configuration
-        ## Filtering mode if texture pixels < screen pixels
-        self._filter_min = filt
-        ## Filtering mode if texture pixels > screen pixels
-        self._filter_max = filt
-
-        self._handle = gl.glGenTextures(1)
-        if self._data is not None:
-            self._generate(self._data, width, height)
-
-    def handle(self):
-        return self._handle
-
-    def _generate(self, data, width=None, height=None):
-
-        if width is None or height is None:
-            try:
-                w, h, bands = data.shape
-            except:
-                w, h = data.shape
+            self._image_format = gl.GL_RED
+            self._pname = gl.GL_REPEAT
+            self._filter_min = gl.GL_LINEAR
+            self._filter_mag = gl.GL_LINEAR
         else:
-            w = width
-            h = height
+            self._pname = gl.GL_CLAMP_TO_EDGE
+            ## Filtering mode if texture pixels < screen pixels
+            self._filter_min = filt
+            ## Filtering mode if texture pixels > screen pixels
+            self._filter_mag = filt
+            self._image_format = self._format
 
         # Create the Texture
-        gl.glBindTexture(gl.GL_TEXTURE_2D, self._handle)
+        self._handle = gl.glGenTextures(1)
+        if self._data is not None:
+            if width is None or height is None:
+                try:
+                    height, width, bands = self._data.shape
+                except ValueError:
+                    height, width = self._data.shape
 
+        # Bind texture
+        gl.glBindTexture(gl.GL_TEXTURE_2D, self._handle)
         #gl.glPixelStorei(gl.GL_UNPACK_ALIGNMENT, 1)
 
         # Set Texture wrap and filter modes
-        gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_WRAP_S, gl.GL_CLAMP_TO_EDGE);
-        gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_WRAP_T, gl.GL_CLAMP_TO_EDGE);
-        gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MIN_FILTER, self._filter_min);
-        gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MAG_FILTER, self._filter_max);
-        gl.glTexImage2D(gl.GL_TEXTURE_2D, 0, self._format, w, h, 0, self._image_format, self._dtype, data)
+        gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_WRAP_S,
+                self._pname);
+        gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_WRAP_T,
+                self._pname);
+        gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MIN_FILTER,
+                self._filter_min);
+        gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_MAG_FILTER,
+                self._filter_mag);
+        gl.glTexImage2D(gl.GL_TEXTURE_2D, 0, self._format, width, height,
+                0, self._image_format, dtype, self._data)
         # Unbind texture
         gl.glBindTexture(gl.GL_TEXTURE_2D, 0);
 
     def bind(self, texUnit=0):
         gl.glActiveTexture(gl.GL_TEXTURE0+texUnit)
         gl.glBindTexture(gl.GL_TEXTURE_2D, self._handle)
+
+    def handle(self):
+        return self._handle
 
     def unbind(self):
         gl.glBindTexture(gl.GL_TEXTURE_2D, 0)

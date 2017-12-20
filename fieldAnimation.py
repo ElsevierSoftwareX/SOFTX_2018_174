@@ -1,6 +1,3 @@
-from __future__ import division
-import warnings
-warnings.simplefilter('default')
 import os
 import numpy as np
 import ctypes
@@ -135,7 +132,6 @@ class FieldAnimation(object):
 
         # Create Shader program for updating the tracers position
         self.updateProgram = makeProgram('quad.vert', 'update.frag')
-        from IPython import embed; embed()
         self.updateProgram.addUniforms((
                 ('u_tracers', 'i'),
                 ('u_field', 'i'),

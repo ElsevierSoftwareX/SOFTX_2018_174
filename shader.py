@@ -1,4 +1,3 @@
-from deprecation import deprecated
 from OpenGL.error import GLError
 import OpenGL.GL as gl
 import ctypes
@@ -122,9 +121,6 @@ class Shader(object):
 
     def program(self):
         return self._program
-
-    def updateUniforms(self, worldMatrix, projecttedMatrix):
-        pass
 
     def _link(self):
         """ Link the program

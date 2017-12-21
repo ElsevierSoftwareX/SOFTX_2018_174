@@ -1,0 +1,12 @@
+1) Rimuovere distrosion da upgrade.frag;
+2) Verificare la necessità di drop_bump_rate da update.frag;
+3) rimuovere dal fieldAnimation.py gli switch come currentTracersPosition/nextTracersPosition, non sono necessari;
+4) eliminare riferimenti al vento o la velocità dal codice;
+5) correggere ambiguità nomi, es: self._fieldTexture e self.fieldTexture;
+6) quali versioni di OpenGL supportare? Tutte leschede dalla serie NVIDIA 400 (2010) supportano OpenGL fino 4.6, l'OpenGL 3.3 è uscito nel 2010. OpenglES (per dispositivi mobili) è alla versione 3.1 (2014) e supporta i compute shaders. WebGL v2.0 invece è basatto sul opengGLES 3.0, ma il supproto alla versione 2.0 di WebGL è scarso;
+7) occorre aggiungere i metodi che calcellano i buffer e gli shader per completezza;
+8) se il numero di tracers cambia cosa fare? occorre cancellare i vecchi buffer e riallocarli?
+9) Aggiungere licenza d'uso;
+10) Aggiungere commenti e fonti nel codice;
+11) Aggiungere all'esempio di uso, tramite imgui la possibilità di scegliere il campo da visualizzare;
+

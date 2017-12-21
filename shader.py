@@ -9,53 +9,39 @@ import glm
 class Shader(object):
     """ Base shader class
     """
-    def __init__(self, vertex=None, fragment=None, geometry=None):
+    #def __init__(self, vertex=None, fragment=None, geometry=None):
+    def __init__(self, **kargs):
 
         self._uniforms = {}
         self._setters = {}
-
-        if os.path.isfile(vertex):
-            with open(vertex) as f:
-                self._vertex_code = f.read()
-        else:
-            self._vertex_code = vertex
-
-        if isinstance(fragment, (list, tuple)):
-            self._fragment_code = ''
-            for fn in fragment:
-                with open(fn) as f:
-                    self._fragment_code += f.read()
-        elif os.path.isfile(fragment):
-            with open(fragment) as f:
-                self._fragment_code = f.read()
-        else:
-            self._fragment_code = fragment
-
-        if geometry:
-            if os.path.isfile(geometry):
-                with open(geometry) as f:
-                    self._geometry_code = f.read()
-            else:
-                self._geometry_code = geometry
-
+        self._sourceCode = {}
         # create the program handle
-        self._program = gl.glCreateProgram()
-        if not self._program:
+        self.program = gl.glCreateProgram()
+        if not self.program:
             raise SystemExit("Shader creation failed: "
                     "Could not find valid memory location in constructor")
-
         # we are not linked yet
         self._linked = False
 
-        # create the vertex shader
-        self._build_shader(self._vertex_code, gl.GL_VERTEX_SHADER)
+        for stype in kargs:
+            shader = kargs[stype]
+            if shader and os.path.isfile(shader):
+                with open(shader) as f:
+                    self._sourceCode[stype] = f.read()
+            else:
+                self._sourceCode[stype] = f.read()
 
-        # create the fragment shader
-        self._build_shader(self._fragment_code, gl.GL_FRAGMENT_SHADER)
-
-        if geometry:
-            # create the geometry shader
-            self._build_shader(self._geometry_code, gl.GL_GEOMETRY_SHADER)
+            code = self._sourceCode[stype]
+            if code is not None:
+                if stype == 'vertex':
+                    self._build_shader(code, gl.GL_VERTEX_SHADER)
+                elif stype == 'fragment':
+                    self._build_shader(code, gl.GL_FRAGMENT_SHADER)
+                elif stype == 'geometry':
+                    self._build_shader(code, gl.GL_GEOMETRY_SHADER)
+                else:
+                    raise SystemExit("Unimplemented shader type '%s': "
+                    "Giving up...")
 
         self._link()
 
@@ -64,7 +50,7 @@ class Shader(object):
             If utype is not none it defines the setter function.
             Valid utypes are i, b, f, 2f, 4fv
         """
-        uniformLocation = gl.glGetUniformLocation(self._program, uniform)
+        uniformLocation = gl.glGetUniformLocation(self.program, uniform)
         if uniformLocation == -1:
             print('Cannot find uniform %s' % uniform)
             return
@@ -110,38 +96,35 @@ class Shader(object):
         except GLError as e:
             raise SystemExit(gl.glGetShaderInfoLog(shader))
         else:
-            gl.glAttachShader(self._program, shader)
+            gl.glAttachShader(self.program, shader)
 
     def delete(self):
-        programs = gl.glGetAttachedShaders(self._program)
+        programs = gl.glGetAttachedShaders(self.program)
         for item in programs:
-            gl.glDetachShader(self._program, item)
+            gl.glDetachShader(self.program, item)
             gl.glDeleteShader(item)
-        gl.glDeleteProgram(self._program)
-
-    def program(self):
-        return self._program
+        gl.glDeleteProgram(self.program)
 
     def _link(self):
         """ Link the program
         """
-        gl.glLinkProgram(self._program)
+        gl.glLinkProgram(self.program)
         # retrieve the link status
         temp = ctypes.c_int(0)
 
-        if not gl.glGetProgramiv(self._program, gl.GL_LINK_STATUS):
-            raise SystemExit(gl.glGetProgramInfoLog(self._program))
+        if not gl.glGetProgramiv(self.program, gl.GL_LINK_STATUS):
+            raise SystemExit(gl.glGetProgramInfoLog(self.program))
         else:
-            gl.glValidateProgram(self._program)
+            gl.glValidateProgram(self.program)
             self._linked = True
 
-        if not gl.glGetProgramiv(self._program, gl.GL_VALIDATE_STATUS):
-            raise SystemExit(gl.glGetProgramInfoLog(self._program))
+        if not gl.glGetProgramiv(self.program, gl.GL_VALIDATE_STATUS):
+            raise SystemExit(gl.glGetProgramInfoLog(self.program))
 
     def bind(self):
         """ Bind the program, i.e. use it
         """
-        gl.glUseProgram(self._program)
+        gl.glUseProgram(self.program)
 
     def unbind(self):
         """ Unbind whatever program is currently bound - not necessarily this
@@ -163,6 +146,24 @@ class Shader(object):
     def setUniforms(self, nameandvalue):
         for name, value in nameandvalue:
             self.setUniform(name, value)
+
+    def code(self, shader='v', lineno=False):
+        """ Return shader code.
+
+            Keyword Args:
+                shader (string): v for vertex, f for fragment, g for geometry
+                lineno (boolean): add line numbers to code
+
+            Returns:
+                shader source code
+        """
+        if lineno:
+            code = ''
+            for lineno,line in enumerate(self._vertex_code.split('\n')):
+                code += '%3d: ' % (lineno + 1) + line + '\n'
+            return code
+        else:
+            return self._vertex_code
 
     def vertex_code(self, lineno=False):
         """ Return vertex shader code with optional line numbers

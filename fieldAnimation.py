@@ -16,8 +16,8 @@ GLSLDIR = 'glsl'
 
 #------------------------------------------------------------------------------
 def makeProgram(vertexfile, fragmentfile):
-    return Shader(os.path.join(GLSLDIR, vertexfile),
-            os.path.join(GLSLDIR, fragmentfile))
+    return Shader(vertex=os.path.join(GLSLDIR, vertexfile),
+            fragment=os.path.join(GLSLDIR, fragmentfile))
 
 #------------------------------------------------------------------------------
 def field2RGB(field):

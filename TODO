@@ -9,4 +9,5 @@
 9) Aggiungere licenza d'uso;
 10) Aggiungere commenti e fonti nel codice;
 11) Aggiungere all'esempio di uso, tramite imgui la possibilità di scegliere il campo da visualizzare;
+12) Rimuovere dipendeze non necessarie (es. glm);
 

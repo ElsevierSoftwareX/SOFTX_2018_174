@@ -1,21 +1,13 @@
 import OpenGL.GL as gl
-from PIL import Image
-import numpy as np
 
 class Texture(object):
     def __init__(self, data=None,  width=None, height=None,
                 filt=gl.GL_NEAREST, dtype=gl.GL_UNSIGNED_BYTE):
         """ Texture object.
-            `data` can be an RGBA image file name or a 2D or 3D array.
             If data is None an empty texture will be created
         """
 
-        try:
-            img = Image.open(data)
-            img = img.convert('RGBA')
-            self._data = np.asarray(img, dtype=np.uint8)
-        except AttributeError:
-            self._data = data
+        self._data = data
 
         # format of texture object
         if self._data.ndim > 2 and self._data.shape[2] == 3:

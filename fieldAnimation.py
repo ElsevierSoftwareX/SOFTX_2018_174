@@ -1,8 +1,6 @@
 import os
 import numpy as np
 import ctypes
-import random
-import glm
 import OpenGL.GL as gl
 
 # Local imports
@@ -13,15 +11,54 @@ from texture import Texture
 np.random.seed(123)
 
 GLSLDIR = 'glsl'
+WORKGROUP_SIZE = 32
 
 #------------------------------------------------------------------------------
-def makeProgram(vertexfile, fragmentfile):
-    return Shader(vertex=os.path.join(GLSLDIR, vertexfile),
-            fragment=os.path.join(GLSLDIR, fragmentfile))
+def glInfo():
+    """ Return OpenGL information dict
+        WARNING: OpenGL context MUST be initialized !!!
+
+        Args:
+            None
+
+        Returns:
+            OpenGL information dict
+    """
+    count = np.zeros(3, dtype=np.int32)
+    size = np.zeros(3, dtype=np.int32)
+    count[0] = gl.glGetIntegeri_v(gl.GL_MAX_COMPUTE_WORK_GROUP_COUNT, 0)[0]
+    count[1] = gl.glGetIntegeri_v(gl.GL_MAX_COMPUTE_WORK_GROUP_COUNT, 1)[0]
+    count[2] = gl.glGetIntegeri_v(gl.GL_MAX_COMPUTE_WORK_GROUP_COUNT, 2)[0]
+    size[0] = gl.glGetIntegeri_v(gl.GL_MAX_COMPUTE_WORK_GROUP_SIZE, 0)[0]
+    size[1] = gl.glGetIntegeri_v(gl.GL_MAX_COMPUTE_WORK_GROUP_SIZE, 1)[0]
+    size[2] = gl.glGetIntegeri_v(gl.GL_MAX_COMPUTE_WORK_GROUP_SIZE, 2)[0]
+    return {
+            'major': gl.glGetIntegerv(gl.GL_MAJOR_VERSION),
+            'minor': gl.glGetIntegerv(gl.GL_MINOR_VERSION),
+            'version': gl.glGetString(gl.GL_VERSION),
+            'vendor': gl.glGetString(gl.GL_VENDOR),
+            'renderer': gl.glGetString(gl.GL_RENDERER),
+            'glsl': gl.glGetString(gl.GL_SHADING_LANGUAGE_VERSION),
+            'maxComputeWorkGroupCount': count,
+            'maxComputeWorkGroupSize': size,
+            }
 
 #------------------------------------------------------------------------------
 def field2RGB(field):
     """ Return 2D field converted to uint8 RGB image (i.e. scaled in [0, 255])
+
+        Args:
+            field (:class:`numpy.ndarray`): (u, v) 2D vector field instance
+
+        Returns:
+            (
+            rgb (:class:`numpy.ndarray`): uint8 RGB image,
+            uMin (float): u min,
+            uMax (float): u max,
+            vMin (float): v min,
+            vMax (float): v max,
+            ) (tuple): Return value
+
     """
     rows = field.shape[0]
     cols = field.shape[1]
@@ -45,11 +82,22 @@ def modulus(field):
 
 #==============================================================================
 class FieldAnimation(object):
-    """ Field Animation plot class
+    """ Field Animation with OpenGL
+        Description of working principle:
+
     """
-    def __init__(self, width, height, field):
+    def __init__(self, width, height, field, **kargs):
         """ Animate 2D vector field
+
+            Args:
+                width (int): width in pixels
+                height (int): height in pixels
+                field (np.ndarray): 2D vector field
+                **kargs(dict): options  dictionary:
+                    options['cs'] = True selects the compute shader version
         """
+        if kargs:
+            self.options = kargs.get('options', None)
         # Parameters that can be changed later
         self.periodic = True
         self.drawField = False
@@ -67,27 +115,24 @@ class FieldAnimation(object):
         self.w_width = width
         self.w_height = height
 
-        # Prepare the data
-        self._fieldAsRGB, uMin, uMax, vMin, vMax = field2RGB(field)
-        # Compute field modulus
-        self.modulus = modulus(field)
-
         # Since points are in [0, 1] a traslation and a scaling is needed on
         # the model matrix
-        T = glm.Matrix4f.translationMatrix(-1., 1., 0)
-        S = glm.Matrix4f.scaleMatrix(2., -2., 1)
-        # Model transfgorm matrix
-        model = np.dot(T,S)
+        T = np.eye(4, dtype=np.float32)
+        T[:, -1] = (-1., 1., 0, 1)
+        S = (np.eye(4, dtype=np.float32)
+                * np.array((2., -2., 1., 1.), dtype=np.float32))
+        # Model transform matrix
+        model = np.dot(T, S)
         # View matrix
-        view = glm.Matrix4f()
+        view = np.eye(4)
         # Projection matrix
-        proj = glm.Matrix4f()
+        proj = np.eye(4)
         self._MVP = np.dot(model, np.dot(view, proj))
 
         # Create a buffer for the tracers
         self.emptyPixels = np.zeros((width * height * 4), np.uint8)
 
-        # CubeHelix parameters
+        # CubeHelix color palette parameters
         cubeHelixParams =(
                 ('start', 'f'),
                 ('gamma', 'f'),
@@ -102,14 +147,16 @@ class FieldAnimation(object):
                 ('useHue', 'b'),
                 )
 
-        # Create Shader program for the vector field
-        self.fieldProgram = makeProgram('field.vert', 'field.frag')
+        # Create Shader program and uniforms for the vector field
+        self.fieldProgram = Shader(vertex='field.vert', fragment='field.frag',
+                path=GLSLDIR)
         self.fieldProgram.addUniforms((('gMap', 'i'), ) + cubeHelixParams)
 
-        # Create Shader program for the tracers
-        self.drawProgram = makeProgram('draw.vert', 'draw.frag')
+        # Create Shader program and uniforms for the tracers
+        self.drawProgram = Shader(vertex='draw.vert', fragment='draw.frag',
+                path=GLSLDIR)
         self.drawProgram.addUniforms((
-            ('MVP', '4fv'),
+            ('MVP', 'mat4'),
             ('u_tracers', 'i'),
             ('u_tracersRes', 'f'),
             ('palette', 'b'),
@@ -117,21 +164,20 @@ class FieldAnimation(object):
             ('u_field', 'i'),
             ('u_fieldMin', '2f'),
             ('u_fieldMax', '2f')) + cubeHelixParams)
-        # Set values that will not change
-        #TODO: mettere il bind in set uniforms!!
-        self.drawProgram.bind()
-        self.drawProgram.setUniform('u_fieldMin', (uMin, vMin))
-        self.drawProgram.setUniform('u_fieldMax', (uMax, vMax))
-        self.drawProgram.unbind()
 
-        # Create Shader program for updating the screen
-        self.screenProgram = makeProgram('quad.vert', 'screen.frag')
+        # Create Shader program and uniforms for updating the screen
+        self.screenProgram = Shader(vertex='quad.vert',
+                fragment='screen.frag', path=GLSLDIR)
         self.screenProgram.addUniforms((
             ('u_screen', 'i'),
             ('u_opacity', 'f')))
 
-        # Create Shader program for updating the tracers position
-        self.updateProgram = makeProgram('quad.vert', 'update.frag')
+        # Create Shader program and uniforms for updating the tracers position
+        if self.options.cs:
+            self.updateProgram = Shader(compute='update.comp', path=GLSLDIR)
+        else:
+            self.updateProgram = Shader(vertex='quad.vert',
+                    fragment='update.frag', path=GLSLDIR)
         self.updateProgram.addUniforms((
                 ('u_tracers', 'i'),
                 ('u_field', 'i'),
@@ -144,33 +190,64 @@ class FieldAnimation(object):
                 ('u_drop_rate_bump', 'f'),
                 ('fieldScaling', 'f'),
                 ('periodic', 'b')))
+
+        # Set the vector field
+        self.setField(field)
+        self.initTracers()
+
+    def setField(self, field):
+        """ Set the 2D vector field. Must be called every time a new
+            vetor field is selected.
+
+            Args:
+                field (np.ndarray): 2D vector field
+        """
+        # Prepare the data
+        self._fieldAsRGB, uMin, uMax, vMin, vMax = field2RGB(field)
+        # Compute field modulus
+        self.modulus = modulus(field)
+        # Set values that will not change
+        self.drawProgram.bind()
+        self.drawProgram.setUniform('u_fieldMin', (uMin, vMin))
+        self.drawProgram.setUniform('u_fieldMax', (uMax, vMax))
+        self.drawProgram.unbind()
         # Set values that will not change
         self.updateProgram.bind()
         self.updateProgram.setUniform('u_fieldMin', (uMin, vMin))
         self.updateProgram.setUniform('u_fieldMax', (uMax, vMax))
         self.updateProgram.unbind()
-
         self.initTracers()
 
     def setRenderingTarget(self, texture):
+        """ Set texture as rendering target
+        """
         gl.glBindFramebuffer(gl.GL_FRAMEBUFFER, self.frameBuffer)
         gl.glFramebufferTexture2D(gl.GL_FRAMEBUFFER, gl.GL_COLOR_ATTACHMENT0,
             gl.GL_TEXTURE_2D, texture.handle(), 0)
 
     def resetRenderingTarget(self):
+        """ Bind first (default) framebuffer and reset the viewport.
+        """
         gl.glBindFramebuffer(gl.GL_FRAMEBUFFER, 0)
         gl.glViewport(0, 0, self.w_width, self.w_height)
 
     @property
     def tracersCount(self):
+        """ Return tracer count
+        """
         return  self._tracersCount
 
     @tracersCount.setter
     def tracersCount(self, value):
+        """ Tracer count setter method, calls self.initTracers under
+            the hood.
+        """
         self._tracersCount = value
         self.initTracers()
 
     def initTracers(self):
+        """ Initialize the tracers positions
+        """
         # Initial random tracers position
         self.tracers =  np.asarray(255.0 * np.random.random(
                 self._tracersCount * 4), dtype=np.uint8, order='C')
@@ -200,7 +277,7 @@ class FieldAnimation(object):
         values['a_index'] = np.asarray(self.iTracers,
                 dtype=np.float32, order='C')
 
-        self._fieldTexture = Texture(data=self.modulus, dtype=gl.GL_FLOAT)
+        self.modulusTexture = Texture(data=self.modulus, dtype=gl.GL_FLOAT)
 
         ## VAO index
         self._vao = gl.glGenVertexArrays(1)
@@ -254,17 +331,24 @@ class FieldAnimation(object):
         self.frameBuffer = gl.glGenFramebuffers(1)
 
     def draw(self):
+        """ Render the OpenGL scene. This method is called automatically
+            when the scene has to be rendered and is responsible for the
+            animation.
+        """
         if self.drawField:
-            self.drawFieldTexture(None, 1.0)
+            self.drawModulus(1.0)
         self.fieldTexture.bind(0)
         ## Bind texture with random tracers position
         self._currentTracersPos.bind(1)
-
         self.drawScreen()
-
-        self.updateTracers()
+        if self.options.cs:
+            self.updateTracersCS()
+        else:
+            self.updateTracers()
 
     def drawScreen(self):
+        """ Draw background texture and tracers on screen framebuffer texture
+        """
         # Draw background texture and tracers on screen framebuffer texture
         self.setRenderingTarget(self.screenTexture)
         gl.glViewport(0, 0, self.w_width, self.w_height)
@@ -284,8 +368,13 @@ class FieldAnimation(object):
         self.backgroundTexture , self.screenTexture = (
                 self.screenTexture, self.backgroundTexture)
 
-    def drawFieldTexture(self, texture, opacity):
-        self._fieldTexture.bind()
+    def drawModulus(self, opacity):
+        """ Draw the modulus texture.
+
+            Args:
+                opacity (float): opacity (alpha) of the texture
+        """
+        self.modulusTexture.bind()
         self.fieldProgram.bind()
         self.fieldProgram.setUniforms((
             ('gMap', 0),
@@ -310,9 +399,15 @@ class FieldAnimation(object):
 
         gl.glBindBuffer(gl.GL_ELEMENT_ARRAY_BUFFER, 0)
         gl.glBindVertexArray(0)
-        self._fieldTexture.unbind()
+        self.modulusTexture.unbind()
 
     def drawTexture(self, texture, opacity):
+        """ Draw `texture` on the screen.
+
+            Args:
+                texture (:class:Texture): texture instance
+                opacity (float): opacity (alpha) of the texture
+        """
         self.screenProgram.bind()
         gl.glBindVertexArray(self._vaoQuad)
         gl.glBindBuffer(gl.GL_ELEMENT_ARRAY_BUFFER, self.IBO)
@@ -329,6 +424,8 @@ class FieldAnimation(object):
         gl.glBindVertexArray(0)
 
     def drawTracers(self):
+        """ Draw the tracers on the screen
+        """
         gl.glBindVertexArray(self._vao)
         self.drawProgram.bind()
 
@@ -359,6 +456,9 @@ class FieldAnimation(object):
         gl.glBindVertexArray(0)
 
     def updateTracers(self):
+        """ Update tracers position using the fragment shader provided by
+            the graphic card for computing.
+        """
         self.setRenderingTarget(self._nextTracersPos)
         gl.glViewport(0, 0, int(self.tracersRes), int(self.tracersRes))
 
@@ -370,7 +470,7 @@ class FieldAnimation(object):
             ('u_field', 0),
             ('u_tracers', 1),
             ('periodic', self.periodic),
-            ('u_rand_seed', random.random()),
+            ('u_rand_seed', np.random.random()),
             ('u_speed_factor', self.speedFactor),
             ('u_drop_rate', self.dropRate),
             ('u_drop_rate_bump', self.dropRateBump),
@@ -379,10 +479,37 @@ class FieldAnimation(object):
             ))
         gl.glDrawElements(gl.GL_TRIANGLES, 6, gl.GL_UNSIGNED_INT,
             ctypes.c_void_p(0))
+        # Replace current tracers positions with the new ones
+        self._currentTracersPos = self._nextTracersPos
+        self.resetRenderingTarget()
 
-        # Swap buffers
-        self._currentTracersPos, self._nextTracersPos = (
-                self._nextTracersPos, self._currentTracersPos)
+    def updateTracersCS(self):
+        """ Update tracers position using the compute shader provided by
+            the graphic card for computing.
+        """
+        self.updateProgram.bind()
+        self.updateProgram.setUniforms((
+            ('u_field', 0),
+            ('u_tracers', 1),
+            ('periodic', self.periodic),
+            ('u_rand_seed', np.random.random()),
+            ('u_speed_factor', self.speedFactor),
+            ('u_drop_rate', self.dropRate),
+            ('u_drop_rate_bump', self.dropRateBump),
+            ('fieldScaling', self.fieldScaling),
+            ('u_fieldRes', self._fieldAsRGB.shape),
+            ))
+
+        gl.glBindImageTexture(0, self._currentTracersPos._handle, 0,
+                gl.GL_FALSE, 0, gl.GL_READ_ONLY, gl.GL_RGBA8)
+        gl.glBindImageTexture(1, self._nextTracersPos._handle, 0,
+                gl.GL_FALSE, 0, gl.GL_WRITE_ONLY, gl.GL_RGBA8)
+
+        gl.glDispatchCompute(int(self.tracersRes / WORKGROUP_SIZE),
+                int(self.tracersRes / WORKGROUP_SIZE), 1)
+        ## Lock memory access until image process ends
+        gl.glMemoryBarrier(gl.GL_SHADER_IMAGE_ACCESS_BARRIER_BIT)
+        self._currentTracersPos = self._nextTracersPos
 
         self.resetRenderingTarget()
 

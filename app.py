@@ -132,16 +132,23 @@ def userInterface(renderer, graphicItem):
 
 #==============================================================================
 class GLApp(glfwApp):
-    def __init__(self, title, width, height, field, options):
+    def __init__(self, title, width, height, fields, options):
         super(GLApp, self).__init__(title, width, height)
+        self._fields = fields
 
         if options.gui:
             self._renderer = GlfwRenderer(self.window(), False)
         else:
             self._renderer = None
 
+        if options.choose == 'wind':
+            self._ifield = 0
+        elif options.choose == 'epole':
+            self._ifield = 1
+
         # Add Field Animation overlay
-        self._fa = FieldAnimation(width, height, field)
+        self._fa = FieldAnimation(width, height,
+                self._fields[self._ifield], options=options)
         if options.draw_field:
             self._fa.drawField = True
         self._t0 = time.time()
@@ -156,7 +163,7 @@ class GLApp(glfwApp):
         now = time.time()
         if now - self._t0 >= 1:
             if self.options.fps:
-                print("FPS=", self._fps)
+                self.setTitle("%s - %s FPS" % (self.title(), self._fps))
             self._fps = 0
             self._t0 = time.time()
 
@@ -170,6 +177,10 @@ class GLApp(glfwApp):
             else:
                 self._renderer.shutdown()
                 self._renderer = None
+        elif key == GLApp.KEY_N and action == GLApp.PRESS:
+            # Set next field
+            self._ifield = (self._ifield + 1) % len(self._fields)
+            self._fa.setField(self._fields[self._ifield])
         elif key == GLApp.KEY_F and action == GLApp.PRESS:
             # Draw the field
             self._fa.drawField = not self._fa.drawField
@@ -193,21 +204,21 @@ if __name__ == "__main__":
             default="wind",
             help=("Choose field to animate ")
             )
-
     parser.add_argument('-p', '--fps', action='store_true', default=False,
             help=("Count Frames Per Second ")
             )
-
+    parser.add_argument('-k', '--cs', action='store_true', default=False,
+            help=("Use compute shader ")
+            )
     parser.add_argument('-g', '--gui', action='store_true', default=False,
             help=("Add gui control window ")
             )
-
     options = parser.parse_args(sys.argv[1:])
 
-    if options.choose == 'wind':
-        field = np.load("wind_2016-11-20T00-00Z.npy")
-    elif options.choose == 'epole':
-        field = createField()
+    fields = [
+            np.load("wind_2016-11-20T00-00Z.npy"),
+            createField(),
+            ]
 
-    app = GLApp('Field Animation', 360 * 3, 180 * 3, field, options)
+    app = GLApp('Field Animation', 360 * 3, 180 * 3, fields, options)
     app.run()

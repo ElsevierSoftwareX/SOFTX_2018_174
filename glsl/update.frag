@@ -31,9 +31,9 @@ uint hash( uint x ) {
 
 //-----------------------------------------------------------------------------
 // Compound versions of the hashing algorithm I whipped together.
-uint hash(uvec2 v) {return hash( v.x ^ hash(v.y)                         ); }
-uint hash(uvec3 v) {return hash( v.x ^ hash(v.y) ^ hash(v.z)             ); }
-uint hash(uvec4 v) {return hash( v.x ^ hash(v.y) ^ hash(v.z) ^ hash(v.w) ); }
+uint hash(uvec2 v) {return hash( v.x ^ hash(v.y)                         );}
+uint hash(uvec3 v) {return hash( v.x ^ hash(v.y) ^ hash(v.z)             );}
+uint hash(uvec4 v) {return hash( v.x ^ hash(v.y) ^ hash(v.z) ^ hash(v.w) );}
 
 //-----------------------------------------------------------------------------
 // Construct a float with half-open range [0:1] using low 23 bits.
@@ -52,11 +52,11 @@ float floatConstruct( uint m ) {
 
 //-----------------------------------------------------------------------------
 // Pseudo-random value in half-open range [0:1].
-float random_float( float x ) {
+float random_float(float x) {
     return floatConstruct(hash(floatBitsToUint(x)));
 }
 //-----------------------------------------------------------------------------
-float random_vec2( vec2  v ) {
+float random_vec2(vec2  v) {
     return floatConstruct(hash(floatBitsToUint(v)));
 }
 
@@ -91,15 +91,9 @@ void main() {
         color.g / 255.0 + color.a); // decode tracer position from pixel RGBA
 
     vec2 velocity = mix(u_fieldMin, u_fieldMax, lookupField(pos));
-    // relative speed in range [0, 1]
     float speed_t = length(velocity) / length(u_fieldMax);
-
-    // take EPSG:4236 distortion into account for calculating where the tracer
-    // moved
-     float distortion = 1.0;
-    //float distortion = cos(radians(pos.y * 180.0 - 90.0));
-     vec2 offset = vec2(velocity.x / distortion, velocity.y) * fieldScaling
-         * u_speed_factor;
+    vec2 offset = vec2(velocity.x, velocity.y) * fieldScaling
+        * u_speed_factor;
 
     // update tracer position, wrapping around the date line.
     // Periodic boundary along x and y
@@ -110,13 +104,14 @@ void main() {
     else{
             pos = pos + offset;
         }
-     vec2 seed = (pos + v_tex_pos) * u_rand_seed;
+    vec2 seed = (pos + v_tex_pos) * u_rand_seed;
+    //vec2 seed = pos * u_rand_seed;
 
     // drop rate is a chance a tracer will restart at random position,
     // to avoid degeneration.
     // Solve the problem of areas with fast points that are denser than
     // areas with slow points.
-    // Increase reset rate for fast tracer
+    // Increase reset rate for fast tracers
     float new_seed = random_vec2(seed);
     float drop_rate = u_drop_rate + speed_t * u_drop_rate_bump;
     float drop = step(1.0 - drop_rate, new_seed);

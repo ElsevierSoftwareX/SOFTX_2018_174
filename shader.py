@@ -1,16 +1,13 @@
 from OpenGL.error import GLError
 import OpenGL.GL as gl
-import ctypes
 import os
 import numpy as np
-import glm
 
 #==============================================================================
 class Shader(object):
     """ Base shader class
     """
-    #def __init__(self, vertex=None, fragment=None, geometry=None):
-    def __init__(self, **kargs):
+    def __init__(self, path=None, **kargs):
 
         self._uniforms = {}
         self._setters = {}
@@ -25,6 +22,8 @@ class Shader(object):
 
         for stype in kargs:
             shader = kargs[stype]
+            if path is not None:
+                shader = os.path.join(path, shader)
             if shader and os.path.isfile(shader):
                 with open(shader) as f:
                     self._sourceCode[stype] = f.read()
@@ -32,13 +31,15 @@ class Shader(object):
                 self._sourceCode[stype] = f.read()
 
             code = self._sourceCode[stype]
-            if code is not None:
+            if code:
                 if stype == 'vertex':
                     self._build_shader(code, gl.GL_VERTEX_SHADER)
                 elif stype == 'fragment':
                     self._build_shader(code, gl.GL_FRAGMENT_SHADER)
                 elif stype == 'geometry':
                     self._build_shader(code, gl.GL_GEOMETRY_SHADER)
+                elif stype == 'compute':
+                    self._build_shader(code, gl.GL_COMPUTE_SHADER)
                 else:
                     raise SystemExit("Unimplemented shader type '%s': "
                     "Giving up...")
@@ -62,7 +63,7 @@ class Shader(object):
                 self._setters[uniform] = gl.glUniform1f
             elif utype == '2f':
                 self._setters[uniform] = gl.glUniform2f
-            elif utype == '4fv':
+            elif utype == 'mat4':
                 self._setters[uniform] = gl.glUniformMatrix4fv
             else:
                 raise SystemExit("Unimplemented utype '%s'" % utype)
@@ -77,10 +78,6 @@ class Shader(object):
     def _build_shader(self, sourceCode, shader_type):
         """ Actual building of the shader
         """
-        if len(sourceCode) < 1:
-            # if we have no source code, ignore this shader
-            return
-
         # create the shader handle
         shader = gl.glCreateShader(shader_type)
         if shader == 0:
@@ -110,7 +107,6 @@ class Shader(object):
         """
         gl.glLinkProgram(self.program)
         # retrieve the link status
-        temp = ctypes.c_int(0)
 
         if not gl.glGetProgramiv(self.program, gl.GL_LINK_STATUS):
             raise SystemExit(gl.glGetProgramInfoLog(self.program))
@@ -135,7 +131,7 @@ class Shader(object):
     def setUniform(self, name, value):
         if isinstance(value, (list, tuple)):
             self._setters[name](self._uniforms.get(name), *value)
-        elif isinstance(value, glm.Matrix4f):
+        elif isinstance(value, np.ndarray) and value.shape == (4, 4):
             self._setters[name](self._uniforms.get(name), 1, True, value)
         else:
             try:

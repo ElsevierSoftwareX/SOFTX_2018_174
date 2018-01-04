@@ -16,12 +16,114 @@ from imgui.integrations.glfw import GlfwRenderer
 from fieldAnimation import FieldAnimation
 
 
+CHOICES = "epole spiral wind diverging cylinder".split()
+
+#------------------------------------------------------------------------------
+def diverging():
+    """ Diverging field """
+    n = 64
+    x = np.linspace(-2, 2, n)
+    y = np.linspace(-2, 2, n)
+    X, Y = np.meshgrid(x, y)
+    T = np.arctan2(Y - n / 2., X - n/2.)
+    R = 10 + np.sqrt((Y - n / 2.0) ** 2 + (X - n / 2.0) ** 2)
+    U, V = X, -Y
+    #U, V = R * np.cos(T), R * np.sin(T)
+    return np.dstack((V, U))
+    #return np.dstack((V, U))
+
+def simple2():
+    """ Diverging field """
+    n = 64
+    x = np.linspace(-2, 2, n)
+    y = np.linspace(-2, 2, n)
+    X, Y = np.meshgrid(x, y)
+    T = np.arctan2(Y - n / 2., X - n/2.)
+    R = 10 + np.sqrt((Y - n / 2.0) ** 2 + (X - n / 2.0) ** 2)
+    U, V = X, -Y
+    #U, V = R * np.cos(T), R * np.sin(T)
+    return np.dstack((U, V))
+    #return np.dstack((V, U))
+
+
+def simple3():
+    """ Diverging field """
+    Y, X = np.mgrid[-3:3:100j, -3:3:100j]
+    U = -1 - X**2 + Y
+    V = 1 + X - Y**2
+    return np.dstack((U, -V))
+
+def cylinder():
+    """ Diverging field """
+    import sympy
+    from sympy.abc import x, y
+    import matplotlib.pyplot as plt
+
+    def cylinder_stream_function(U=1, R=1):
+        r = sympy.sqrt(x**2 + y**2)
+        theta = sympy.atan2(y, x)
+        return U * (r - R**2 / r) * sympy.sin(theta)
+
+    def velocity_field(psi):
+        u = sympy.lambdify((x, y), psi.diff(y), 'numpy')
+        v = sympy.lambdify((x, y), -psi.diff(x), 'numpy')
+        return u, v
+
+    def plot_streamlines(ax, u, v, xlim=(-1, 1), ylim=(-1, 1)):
+        x0, x1 = xlim
+        y0, y1 = ylim
+        Y, X =  np.ogrid[y0:y1:64j, x0:x1:64j]
+        x = np.linspace(-2, 2, 64)
+        y = np.linspace(-2, 2, 64)
+        X, Y = np.meshgrid(x, y)
+        U = u(X, Y)
+        V = v(X, Y)
+        modulus = np.hypot(U, V)
+        #ax.quiver(U, V)
+        #ax.imshow(modulus)
+        #from IPython import embed; embed()
+        #ax.streamplot(X, Y, U, V, color='cornflowerblue')
+        return U, V
+
+    psi = cylinder_stream_function()
+    u, v = velocity_field(psi)
+    xlim = ylim = (-2, 2)
+    fig, ax = plt.subplots(figsize=(6, 6))
+    U, V = plot_streamlines(ax, u, v, xlim, ylim)
+    #c = plt.Circle((0, 0), radius=1, facecolor='red')
+    #ax.add_patch(c)
+    #plt.show()
+
+    #Y, X =  np.ogrid[-3:3:100j, -3:3:100j]
+    #X, Y =  np.ogrid[-3:3:100j, -3:3:100j]
+    #x = np.linspace(-3, 3, 64)
+    #y = np.linspace(-3, 3, 64)
+    #U = X*0+1.0
+    #V = Y*0.+1.0
+    return np.dstack((U, V))
+
 #------------------------------------------------------------------------------
 def E(q, r0, x, y):
     """ Return the electric field vector E=(Ex, Ey) due to charge q at r0.
     """
     den = np.hypot(x - r0[0], y - r0[1]) ** 1.5
     return q * (x - r0[0]) / den, q * (y - r0[1]) / den
+
+#------------------------------------------------------------------------------
+#def E(q, r0, x, y):
+    #""" Return the electric field vector E=(Ex, Ey) due to charge q at r0.
+    #"""
+    #return x + y, y - x
+
+#------------------------------------------------------------------------------
+def Spiral(q, r0, x, y, origin=(0.8, - 0.8), clockwise=False):
+    """ Return a spiral field vector with origin at `origin`
+    """
+    x, y = x - origin[0], y - origin[1]
+    if clockwise:
+        return x - y, x + y
+    else:
+        return y - x, -x - y
 
 #------------------------------------------------------------------------------
 def createField(m=64, n=64, eq=E, charges=1):
@@ -48,7 +150,6 @@ def createField(m=64, n=64, eq=E, charges=1):
         Ex += ex
         Ey += ey
     return np.dstack((Ex, Ey))
-
 
 #------------------------------------------------------------------------------
 def userInterface(renderer, graphicItem):
@@ -141,10 +242,7 @@ class GLApp(glfwApp):
         else:
             self._renderer = None
 
-        if options.choose == 'wind':
-            self._ifield = 0
-        elif options.choose == 'epole':
-            self._ifield = 1
+        self._ifield = CHOICES.index(options.choose)
 
         # Add Field Animation overlay
         self._fa = FieldAnimation(width, height,
@@ -187,6 +285,9 @@ class GLApp(glfwApp):
 
         super(GLApp, self).onKeyboard(window, key, scancode, action, mode)
 
+    def onResize(self, window, width, height):
+        self._fa.setSize(width, height)
+
 
 #------------------------------------------------------------------------------
 if __name__ == "__main__":
@@ -200,7 +301,8 @@ if __name__ == "__main__":
             default=False,
             help=("Draw vector field as background image ")
             )
-    parser.add_argument('-c', '--choose', choices="epole wind".split(),
+    parser.add_argument('-c', '--choose',
+            choices=CHOICES,
             default="wind",
             help=("Choose field to animate ")
             )
@@ -216,8 +318,11 @@ if __name__ == "__main__":
     options = parser.parse_args(sys.argv[1:])
 
     fields = [
+            createField(eq=E),
+            createField(eq=Spiral),
             np.load("wind_2016-11-20T00-00Z.npy"),
-            createField(),
+            diverging(),
+            cylinder(),
             ]
 
     app = GLApp('Field Animation', 360 * 3, 180 * 3, fields, options)

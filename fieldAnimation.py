@@ -75,7 +75,10 @@ def field2RGB(field):
 
 #------------------------------------------------------------------------------
 def modulus(field):
-    """ Return normalized modulus of 2D field image (i.e. scaled in [0, 1.])
+    """ Return normalized modulus of 2D field image
+
+        Returns:
+            normalized modulus of 2D field image (i.e. scaled in [0, 1.])
     """
     modulus = np.flipud(np.hypot(field[:, :, 0], field[:,:,1]))
     return np.asarray(modulus/modulus.max(), np.float32)
@@ -104,6 +107,7 @@ class FieldAnimation(object):
         self.fadeOpacity = 0.996
         self.dropRateBump = 0.01
         self.speedFactor = 0.25
+        self.speedFactor = 1.25
         self.dropRate = 0.003
         self.palette = True
         self.color = (0.5, 1.0, 1.0)
@@ -193,7 +197,7 @@ class FieldAnimation(object):
 
         # Set the vector field
         self.setField(field)
-        self.initTracers()
+        self._initTracers()
 
     def setField(self, field):
         """ Set the 2D vector field. Must be called every time a new
@@ -216,14 +220,28 @@ class FieldAnimation(object):
         self.updateProgram.setUniform('u_fieldMin', (uMin, vMin))
         self.updateProgram.setUniform('u_fieldMax', (uMax, vMax))
         self.updateProgram.unbind()
-        self.initTracers()
+        self._initTracers()
 
     def setRenderingTarget(self, texture):
         """ Set texture as rendering target
+
+            Args:
+                texture (class:`texture` instance): 2D vector field
         """
         gl.glBindFramebuffer(gl.GL_FRAMEBUFFER, self.frameBuffer)
         gl.glFramebufferTexture2D(gl.GL_FRAMEBUFFER, gl.GL_COLOR_ATTACHMENT0,
             gl.GL_TEXTURE_2D, texture.handle(), 0)
+
+    def setSize(self, width, height):
+        """ Set instance size. Must be called when the window is resized.
+
+            Args:
+                width (int): window width in pixels
+                height (int): window height in pixels
+        """
+        self.w_width = width
+        self.w_height = height
+        self._initTracers()
 
     def resetRenderingTarget(self):
         """ Bind first (default) framebuffer and reset the viewport.
@@ -233,19 +251,25 @@ class FieldAnimation(object):
 
     @property
     def tracersCount(self):
-        """ Return tracer count
+        """ Return tracers count
+
+            Returns:
+                number of tracers
         """
         return  self._tracersCount
 
     @tracersCount.setter
     def tracersCount(self, value):
-        """ Tracer count setter method, calls self.initTracers under
+        """ Tracer count setter method, calls self._initTracers under
             the hood.
+
+            Args:
+                value (int): number of tracers to create
         """
         self._tracersCount = value
-        self.initTracers()
+        self._initTracers()
 
-    def initTracers(self):
+    def _initTracers(self):
         """ Initialize the tracers positions
         """
         # Initial random tracers position
@@ -372,7 +396,9 @@ class FieldAnimation(object):
         """ Draw the modulus texture.
 
             Args:
-                opacity (float): opacity (alpha) of the texture
+                opacity (float): opacity (alpha) of the texture:
+                    0 --> transparent
+                    1 --> opaque
         """
         self.modulusTexture.bind()
         self.fieldProgram.bind()
@@ -407,6 +433,8 @@ class FieldAnimation(object):
             Args:
                 texture (:class:Texture): texture instance
                 opacity (float): opacity (alpha) of the texture
+                    0 --> transparent
+                    1 --> opaque
         """
         self.screenProgram.bind()
         gl.glBindVertexArray(self._vaoQuad)

@@ -13,6 +13,20 @@ np.random.seed(123)
 GLSLDIR = 'glsl'
 WORKGROUP_SIZE = 32
 
+
+def initOrthographic(left, right, bottom, top, near, far):
+    width = right - left
+    height = top - bottom
+    depth = far - near
+    m = np.identity(4, np.float32)
+    m[0, 0] = 2. / width
+    m[1, 1] = 2. / height
+    m[2, 2] = -2. / depth
+    m[0, 3] = -(right + left) / width
+    m[1, 3] = -(top + bottom) / height
+    m[2, 3] = -(far + near) / depth
+    return m
+
 #------------------------------------------------------------------------------
 def glInfo():
     """ Return OpenGL information dict
@@ -129,12 +143,10 @@ class FieldAnimation(object):
         model = np.dot(T, S)
         # View matrix
         view = np.eye(4)
+        
         # Projection matrix
         proj = np.eye(4)
         self._MVP = np.dot(model, np.dot(view, proj))
-
-        # Create a buffer for the tracers
-        self.emptyPixels = np.zeros((width * height * 4), np.uint8)
 
         # CubeHelix color palette parameters
         cubeHelixParams =(
@@ -272,6 +284,10 @@ class FieldAnimation(object):
     def _initTracers(self):
         """ Initialize the tracers positions
         """
+        
+        # Create a buffer for the tracers
+        self.emptyPixels = np.zeros((self.w_width * self.w_height * 4), np.uint8)
+        
         # Initial random tracers position
         self.tracers =  np.asarray(255.0 * np.random.random(
                 self._tracersCount * 4), dtype=np.uint8, order='C')

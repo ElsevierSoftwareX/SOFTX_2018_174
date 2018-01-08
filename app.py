@@ -159,6 +159,7 @@ def userInterface(renderer, graphicItem):
         return
 
     renderer.process_inputs()
+    imgui.set_next_window_position(0, 0)
     imgui.new_frame()
     imgui.begin('Controls', closable=True,
             flags=imgui.WINDOW_ALWAYS_AUTO_RESIZE)

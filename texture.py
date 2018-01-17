@@ -40,7 +40,8 @@ class Texture(object):
 
         # Bind texture
         gl.glBindTexture(gl.GL_TEXTURE_2D, self._handle)
-        #gl.glPixelStorei(gl.GL_UNPACK_ALIGNMENT, 1)
+        # Avoid banding if row length is odd
+        gl.glPixelStorei(gl.GL_UNPACK_ALIGNMENT, 1)
 
         # Set Texture wrap and filter modes
         gl.glTexParameteri(gl.GL_TEXTURE_2D, gl.GL_TEXTURE_WRAP_S,

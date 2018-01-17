@@ -6,10 +6,6 @@ from PIL import Image
 import signal
 import time
 signal.signal(signal.SIGINT, signal.SIG_DFL)
-try:
-    import pylab
-except ImportError:
-    pylab = None
 
 import OpenGL.GL as gl
 from glfwBackend import glfwApp
@@ -29,6 +25,7 @@ CHOICES = (
     'Spiral ccw',
     'Spiral cw',
     'wind',
+    'gmod',
     )
 
 #------------------------------------------------------------------------------
@@ -36,10 +33,12 @@ def ElectricField(q, r0, x, y):
     """ Return the electric field vector E=(Ex, Ey) due to charge q at r0.
     """
     den = np.hypot(x - r0[0], y - r0[1]) ** 1.5
+
     return q * (x - r0[0]) / den, q * (y - r0[1]) / den
 
 #------------------------------------------------------------------------------
 def createField(eq='Spiral ccw', m=64, n=64):
+# def createField(eq='Spiral ccw', m=81, n=201):
     """ Equations are taken from
         http://reference.wolfram.com/language/ref/StreamPlot.html
 
@@ -101,16 +100,14 @@ def createField(eq='Spiral ccw', m=64, n=64):
         Y, X = np.mgrid[0:r, 0:c]
         U = field[:, :, 0][::-1]
         V = - field[:, :, 1][::-1]
+        # print(r,c)
+    elif eq == 'gmod':
+        U = np.load('vx.npy')[::-1][:-1,:-1]*1e10
+        V = np.load('vy.npy')[::-1][:-1,:-1]*1e10
     else:
         raise SystemExit("Unknown field. Giving up...")
 
-    if pylab:
-        streamplot = pylab.streamplot(X, Y, U, V)
-        ax = pylab.gca()
-        ax.set_aspect('equal')
-    else:
-        streamplot = None
-    return streamplot, np.flipud(np.dstack((U, -V)))
+    return np.flipud(np.dstack((U, -V)))
 
 #------------------------------------------------------------------------------
 def userInterface(renderer, graphicItem):
@@ -203,11 +200,11 @@ class GLApp(glfwApp):
         else:
             self._renderer = None
 
+        if options.image is not None:
+            options.image = np.flipud(np.asarray(Image.open(options.image), np.uint8))
+
         self._ifield = CHOICES.index(options.choose)
-        streamplot, field = createField(CHOICES[self._ifield])
-        if pylab:
-            pylab.title(CHOICES[self._ifield])
-            pylab.show()
+        field = createField(CHOICES[self._ifield])
 
         # Add Field Animation overlay
         self._fa = FieldAnimation(width, height, field, options=options)
@@ -241,11 +238,8 @@ class GLApp(glfwApp):
         elif key == GLApp.KEY_N and action == GLApp.PRESS:
             # Set next field
             self._ifield = (self._ifield + 1) % len(CHOICES)
-            streamplot, field = createField(CHOICES[self._ifield])
+            field = createField(CHOICES[self._ifield])
             self._fa.setField(field)
-            if pylab:
-                pylab.title(CHOICES[self._ifield])
-                pylab.show()
         elif key == GLApp.KEY_F and action == GLApp.PRESS:
             # Draw the field
             self._fa.drawField = not self._fa.drawField
@@ -282,7 +276,11 @@ if __name__ == "__main__":
     parser.add_argument('-g', '--gui', action='store_true', default=False,
             help=("Add gui control window ")
             )
+
+    parser.add_argument('-i', '--image', action='store', default=None,
+            help=("Load image as background texture")
+            )
     options = parser.parse_args(sys.argv[1:])
 
-    app = GLApp('Field Animation', 360 * 3, 180 * 3, options)
+    app = GLApp('Field Animation', 800, 600, options)
     app.run()

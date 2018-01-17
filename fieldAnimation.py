@@ -1,4 +1,3 @@
-import os
 import numpy as np
 import ctypes
 import OpenGL.GL as gl
@@ -7,25 +6,11 @@ import OpenGL.GL as gl
 from shader import Shader
 from texture import Texture
 
-# Fix ramdom sequence
+# Fix ramdom sequence seed
 np.random.seed(123)
 
 GLSLDIR = 'glsl'
 WORKGROUP_SIZE = 32
-
-
-def initOrthographic(left, right, bottom, top, near, far):
-    width = right - left
-    height = top - bottom
-    depth = far - near
-    m = np.identity(4, np.float32)
-    m[0, 0] = 2. / width
-    m[1, 1] = 2. / height
-    m[2, 2] = -2. / depth
-    m[0, 3] = -(right + left) / width
-    m[1, 3] = -(top + bottom) / height
-    m[2, 3] = -(far + near) / depth
-    return m
 
 #------------------------------------------------------------------------------
 def glInfo():
@@ -188,6 +173,12 @@ class FieldAnimation(object):
             ('u_screen', 'i'),
             ('u_opacity', 'f')))
 
+        # Create image background shader
+        if self.options.image is not None:
+            self.imageProgram = Shader(vertex='field.vert',
+                    fragment='image.frag', path=GLSLDIR)
+            self.imageProgram.addUniform('gMap', 'i')
+
         # Create Shader program and uniforms for updating the tracers position
         if self.options.cs:
             self.updateProgram = Shader(compute='update.comp', path=GLSLDIR)
@@ -210,6 +201,7 @@ class FieldAnimation(object):
         # Set the vector field
         self.setField(field)
         self._initTracers()
+
 
     def setField(self, field):
         """ Set the 2D vector field. Must be called every time a new
@@ -317,6 +309,8 @@ class FieldAnimation(object):
         values['a_index'] = np.asarray(self.iTracers,
                 dtype=np.float32, order='C')
 
+        if self.options.image is not None:
+            self.imageTexture = Texture(data=self.options.image, dtype=gl.GL_UNSIGNED_BYTE)
         self.modulusTexture = Texture(data=self.modulus, dtype=gl.GL_FLOAT)
 
         ## VAO index
@@ -377,6 +371,10 @@ class FieldAnimation(object):
         """
         if self.drawField:
             self.drawModulus(1.0)
+
+        if self.options.image is not None:
+            self.drawImage()
+
         self.fieldTexture.bind(0)
         ## Bind texture with random tracers position
         self._currentTracersPos.bind(1)
@@ -442,6 +440,23 @@ class FieldAnimation(object):
         gl.glBindBuffer(gl.GL_ELEMENT_ARRAY_BUFFER, 0)
         gl.glBindVertexArray(0)
         self.modulusTexture.unbind()
+
+    def drawImage(self):
+        """ Draw an image texture in background.
+        """
+        self.imageProgram.bind()
+        self.imageTexture.bind()
+        self.imageProgram.setUniform('gMap', 0)
+        gl.glBindVertexArray(self._vaoQuad)
+        gl.glBindBuffer(gl.GL_ELEMENT_ARRAY_BUFFER, self.IBO)
+
+        gl.glDrawElements(gl.GL_TRIANGLES, 6, gl.GL_UNSIGNED_INT,
+                          ctypes.c_void_p(0))
+        self.imageProgram.unbind()
+
+        gl.glBindBuffer(gl.GL_ELEMENT_ARRAY_BUFFER, 0)
+        gl.glBindVertexArray(0)
+        self.imageTexture.unbind()
 
     def drawTexture(self, texture, opacity):
         """ Draw `texture` on the screen.

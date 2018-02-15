@@ -30,6 +30,7 @@ class glfwApp(metaclass=ABCMeta):
         self._width = width
         self._height = height
         self._title = title
+        self.bg_color = (0.0, 0.0, 0.0, 0.0)
 
         glfw.set_error_callback(errorCallback)
 
@@ -53,7 +54,10 @@ class glfwApp(metaclass=ABCMeta):
 
         glfw.make_context_current(self._window)
         glfw.set_key_callback(self._window, self.onKeyboard)
-
+    
+    def restoreKeyCallback(self):
+        glfw.set_key_callback(self._window, self.onKeyboard)
+    
     @abstractmethod
     def onResize(self, window, width, height):
         """ This method must be implemened. It is called automatically when
@@ -108,11 +112,12 @@ class glfwApp(metaclass=ABCMeta):
     def run(self):
         """ Start the application main loop
         """
-        gl.glClearColor(0.0, 0.0, 0.0, 1.0)
         while not glfw.window_should_close(self._window):
+            gl.glClearColor(*self.bg_color)
+            glfw.poll_events()
             self.renderScene()
             glfw.swap_buffers(self._window)
-            glfw.poll_events()
+            
         self.close()
 
     def close(self):

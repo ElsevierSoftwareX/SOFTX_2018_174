@@ -15,6 +15,8 @@ from imgui.integrations.glfw import GlfwRenderer
 # Local imports
 from fieldAnimation import FieldAnimation
 
+import glfw
+
 CHOICES = (
     'epole',
     "Duffing's equation",
@@ -66,6 +68,7 @@ def createField(eq='Spiral ccw', m=64, n=64):
             ex, ey = ElectricField(*charge, x=X, y=Y)
             U += ex
             V += ey
+
     elif eq == "Duffing's equation":
         # Duffing's equation
         U = Y.copy()
@@ -102,15 +105,54 @@ def createField(eq='Spiral ccw', m=64, n=64):
         V = - field[:, :, 1][::-1]
         # print(r,c)
     elif eq == 'gmod':
-        U = np.load('vx.npy')[::-1][:-1,:-1]*1e10
-        V = np.load('vy.npy')[::-1][:-1,:-1]*1e10
+        U = np.load('vx.npy')[::-1]
+        V = np.load('vy.npy')[::-1]
+        r,c = U.shape
+        Y, X = np.mgrid[0:r, 0:c]
+        
+        ############################################################
+        import pylab as plt
+        from cubehelix import cubehelix
+        from matplotlib.colors import LinearSegmentedColormap as LSC
+
+        nlev = 256
+    
+        cc = cubehelix(startHue=240,endHue=-300,minSat=0.2,maxSat=5.0,minLight=.5,maxLight=.9,gamma=.9)
+        data = np.linspace(0.0, 1.0, nlev)
+    
+        cmap = cc[(255.0*data).astype(int)]
+    
+        cm = LSC.from_list('cubehelix_map', np.c_[cc,np.ones(len(cc))])         
+
+        
+        fig = plt.figure(figsize=(10,10), dpi=100)
+        ax = fig.add_subplot(111)
+
+        # Plot the streamlines with an appropriate colormap and arrow style
+        
+        color = np.hypot(U, V)
+        p = ax.pcolormesh(X,Y,color, cmap=cm)
+        ax.streamplot(X, Y, U, V, linewidth=1, color='w',
+        #ax.streamplot(X, Y, U, V, color=color, linewidth=1,
+                    density=2, arrowstyle='->', arrowsize=1.5)
+
+        #ax.set_xlabel('$x$')
+        #ax.set_ylabel('$y$')
+        ax.set_xlim(0,200)
+        ax.set_ylim(0,80)
+        #ax.set_aspect('equal')
+        plt.colorbar(p)
+        plt.savefig('gmod.png')
+        ############################################################
+        
+        
     else:
         raise SystemExit("Unknown field. Giving up...")
 
     return np.flipud(np.dstack((U, -V)))
 
 #------------------------------------------------------------------------------
-def userInterface(renderer, graphicItem):
+def userInterface(renderer, graphicItem, app):
     """ Control graphicItem parameters interactively
     """
     if not renderer:
@@ -119,36 +161,40 @@ def userInterface(renderer, graphicItem):
     renderer.process_inputs()
     imgui.set_next_window_position(0, 0)
     imgui.new_frame()
-    imgui.begin('Controls', closable=True,
+    toOpen = True
+    dummy, toOpen = imgui.begin('Controls', closable=True,
             flags=imgui.WINDOW_ALWAYS_AUTO_RESIZE)
-
+    if not toOpen:
+        app.restoreKeyCallback()
+        return toOpen
+    
+    # field to show
+    current = app.ifield
+    changed, current = imgui.combo('Field', current, list(CHOICES))
+    if changed:
+        app.setField(current)
+    
     # Speed Rate
-    changed, speed = imgui.slider_float('Speed',
-        graphicItem.speedFactor, 0, 10.0)
+    changed, speed = imgui.drag_float('Speed',
+        graphicItem.speedFactor, 0.01, 0.0, 10.0)
     if changed:
         graphicItem.speedFactor = speed
 
     # Drop Rate
-    changed, dropRate = imgui.slider_float('Drop rate',
-        graphicItem.dropRate, 0, 0.1)
+    changed, dropRate = imgui.drag_float('Drop rate',
+        graphicItem.dropRate, 0.001, 0.001, 1.0)
     if changed:
         graphicItem.dropRate = dropRate
 
     # Drop Rate Bump
-    changed, dropRateBump = imgui.slider_float('Drop rate bump',
-        graphicItem.dropRateBump, 0, 0.1)
+    changed, dropRateBump = imgui.drag_float('Drop rate bump',
+        graphicItem.dropRateBump, 0.01, 0.001, 1.0)
     if changed:
         graphicItem.dropRateBump = dropRateBump
-
-    # Field Scaling
-    changed, fieldScaling = imgui.slider_float('Field Scaling',
-        graphicItem.fieldScaling, 0, 0.01, '%.4f')
-    if changed:
-        graphicItem.fieldScaling = fieldScaling
-
+    
     # Unbknown const
-    changed, opacity = imgui.slider_float('Opacity',
-        graphicItem.fadeOpacity, 0.900, 0.999, '%.4f')
+    changed, opacity = imgui.drag_float('Opacity',
+        graphicItem.fadeOpacity, 0.001, 0.900, 0.999, '%.4f')
     if changed:
         graphicItem.fadeOpacity = opacity
 
@@ -160,6 +206,11 @@ def userInterface(renderer, graphicItem):
     changed, palette = imgui.checkbox("Palette", graphicItem.palette)
     if changed:
         graphicItem.palette = palette
+
+    changed, bg_color = imgui.color_edit4('Background color', *app.bg_color)
+    if changed:
+        app.bg_color = bg_color
+
 
     # Point size
     changed, pointSize = imgui.input_int("Point size",
@@ -173,7 +224,7 @@ def userInterface(renderer, graphicItem):
 
     # Number of Points
     changed, tracersCount = imgui.drag_int("Number of "
-        "Tracers", graphicItem.tracersCount, 4096.0, 64, 1000000)
+        "Tracers", graphicItem.tracersCount, 1000.0, 4000, 10000000)
     if changed:
         graphicItem.tracersCount = tracersCount
 
@@ -189,22 +240,23 @@ def userInterface(renderer, graphicItem):
 
     imgui.end()
     imgui.render()
+    return True
 
 #==============================================================================
 class GLApp(glfwApp):
     def __init__(self, title, width, height, options):
         super(GLApp, self).__init__(title, width, height)
-
+        
         if options.gui:
-            self._renderer = GlfwRenderer(self.window(), False)
+            self._renderer = GlfwRenderer(self.window(), True)
         else:
             self._renderer = None
 
         if options.image is not None:
             options.image = np.flipud(np.asarray(Image.open(options.image), np.uint8))
 
-        self._ifield = CHOICES.index(options.choose)
-        field = createField(CHOICES[self._ifield])
+        self.ifield = CHOICES.index(options.choose)
+        field = createField(CHOICES[self.ifield])
 
         # Add Field Animation overlay
         self._fa = FieldAnimation(width, height, field, options=options)
@@ -214,11 +266,13 @@ class GLApp(glfwApp):
         self._fps = 0
         self.options = options
 
-    def renderScene(self):
+    def renderScene(self):       
         super(GLApp, self).renderScene()
         self._fa.draw()
         self._fps += 1
-        userInterface(self._renderer, self._fa)
+        status = userInterface(self._renderer, self._fa, self)
+        if not status:
+            self._renderer = None
         now = time.time()
         if now - self._t0 >= 1:
             if self.options.fps:
@@ -230,25 +284,19 @@ class GLApp(glfwApp):
         if key == GLApp.KEY_G and action == GLApp.PRESS:
             # Draw the GUI
             if self._renderer is None:
-                self._renderer = GlfwRenderer(self.window(), False)
-                self._renderer.process_inputs()
-            else:
-                self._renderer.shutdown()
-                self._renderer = None
-        elif key == GLApp.KEY_N and action == GLApp.PRESS:
-            # Set next field
-            self._ifield = (self._ifield + 1) % len(CHOICES)
-            field = createField(CHOICES[self._ifield])
-            self._fa.setField(field)
-        elif key == GLApp.KEY_F and action == GLApp.PRESS:
-            # Draw the field
-            self._fa.drawField = not self._fa.drawField
+                self._renderer = GlfwRenderer(self.window(), True)
+               
         super(GLApp, self).onKeyboard(window, key, scancode, action, mode)
-
+    
     def onResize(self, window, width, height):
         gl.glViewport(0, 0, width, height)
         self._fa.setSize(width, height)
-
+        
+    def setField(self, ifield):
+        field = createField(CHOICES[ifield])
+        self._fa.setField(field)
+        self.setTitle('%s' % CHOICES[ifield])
+        self.ifield = ifield
 
 #------------------------------------------------------------------------------
 if __name__ == "__main__":
@@ -282,5 +330,5 @@ if __name__ == "__main__":
             )
     options = parser.parse_args(sys.argv[1:])
 
-    app = GLApp('Field Animation', 800, 600, options)
+    app = GLApp('Field Animation', 800, 800, options)
     app.run()

@@ -106,13 +106,12 @@ class FieldAnimation(object):
         self.fadeOpacity = 0.996
         self.dropRateBump = 0.01
         self.speedFactor = 0.25
-        self.speedFactor = 1.25
         self.dropRate = 0.003
         self.palette = True
         self.color = (0.5, 1.0, 1.0)
         self.pointSize = 1.0
-        self._tracersCount = 16384
-        self.fieldScaling = 0.0001
+        self._tracersCount = 10000        
+        self.fieldScaling = 1.0
 
         # These are fixed
         self.w_width = width
@@ -209,7 +208,10 @@ class FieldAnimation(object):
 
             Args:
                 field (np.ndarray): 2D vector field
-        """
+        """       
+        # Automatic field scalking
+        self.fieldScaling = self.speedFactor*0.01/field.max()
+
         # Prepare the data
         self._fieldAsRGB, uMin, uMax, vMin, vMax = field2RGB(field)
         # Compute field modulus
@@ -278,6 +280,7 @@ class FieldAnimation(object):
         """
         
         # Create a buffer for the tracers
+        #self.emptyPixels = np.ones((self.w_width * self.w_height * 4), np.uint8)
         self.emptyPixels = np.zeros((self.w_width * self.w_height * 4), np.uint8)
         
         # Initial random tracers position
@@ -416,6 +419,20 @@ class FieldAnimation(object):
         """
         self.modulusTexture.bind()
         self.fieldProgram.bind()
+        #self.fieldProgram.setUniforms((
+            #('gMap', 0),
+            #('start', 0.5),
+            #('gamma', 1.0),
+            #('rot', -1.5),
+            #('reverse', False),
+            #('minSat', 0.0),
+            #('maxSat', 1.0),
+            #('minLight', 0.0),
+            #('maxLight', 1.0),
+            #('startHue', 240.0),
+            #('endHue', -300.0),
+            #('useHue', False),
+            #))
         self.fieldProgram.setUniforms((
             ('gMap', 0),
             ('start', 1.0),
@@ -488,6 +505,26 @@ class FieldAnimation(object):
         gl.glBindVertexArray(self._vao)
         self.drawProgram.bind()
 
+        #self.drawProgram.setUniforms((
+            #('u_field', 0),
+            #('palette', bool(self.palette)),
+            #('u_tracers', 1),
+            #('MVP', self._MVP),
+            #('pointSize', self.pointSize),
+            ## CubeHelix
+            #('start', 0.5),
+            #('gamma', 1.0),
+            #('rot', -1.5),
+            #('reverse', False),
+            #('minSat', 0.0),
+            #('maxSat', 1.0),
+            #('minLight', 0.0),
+            #('maxLight', 1.0),
+            #('startHue', 240.0),
+            #('endHue', -300.0),
+            #('useHue', False),
+            #('u_tracersRes', float(self.tracersRes)),
+            #))
         self.drawProgram.setUniforms((
             ('u_field', 0),
             ('palette', bool(self.palette)),

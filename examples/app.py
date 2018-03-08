@@ -13,7 +13,7 @@ import imgui
 from imgui.integrations.glfw import GlfwRenderer
 
 # Local imports
-from fieldAnimation.fieldAnimation import FieldAnimation
+from fieldAnimation import FieldAnimation
 
 import glfw
 

@@ -92,8 +92,8 @@ void main() {
 
     vec2 velocity = mix(u_fieldMin, u_fieldMax, lookupField(pos));
     float speed_t = length(velocity) / length(u_fieldMax);
-    vec2 offset = vec2(velocity.x, velocity.y) * 1e-4* fieldScaling
-         * u_speed_factor;
+    vec2 offset = vec2(velocity.x, velocity.y) * fieldScaling
+            * u_speed_factor;
 
     // update tracer position, wrapping around the date line.
     // Periodic boundary along x and y
@@ -118,6 +118,8 @@ void main() {
     float drop = step(1.0 - drop_rate, new_seed);
 
     vec2 random_pos = random_vector(new_seed);
+    // drop can be 0 or 1: so new pos is either the old one or the new random
+    // No interpolation occurrs
     pos = mix(pos, random_pos, drop);
 
     // encode the new tracer position back into RGBA

@@ -194,4 +194,3 @@ class Shader(object):
                 return code
             else:
                 return self._fragment_code
-

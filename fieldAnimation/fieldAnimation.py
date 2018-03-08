@@ -1,15 +1,16 @@
+import os
 import numpy as np
 import ctypes
 import OpenGL.GL as gl
 
 # Local imports
-from shader import Shader
-from texture import Texture
+from . shader import Shader
+from . texture import Texture
 
 # Fix ramdom sequence seed
 np.random.seed(123)
 
-GLSLDIR = 'glsl'
+GLSLDIR = os.path.join(os.path.dirname(__file__ ), 'glsl')
 WORKGROUP_SIZE = 32
 
 #------------------------------------------------------------------------------
@@ -85,8 +86,25 @@ def modulus(field):
 #==============================================================================
 class FieldAnimation(object):
     """ Field Animation with OpenGL
-        Description of working principle:
 
+
+        1. draw the modulus of the vector field or a user defined image
+            if requested;
+        2. set a framebuffer texture (screen texture) as the main
+            rendering target:
+                (a) draw the background texture on the screen texture
+                    with a fixed opacity;
+                (b) decode the particles positions from the
+                    currentTracersPosition texture and draw them on
+                    the screen texture;
+        3. set the rendering target to the active window;
+        4. draw screen texture on the active window;
+        5. swap screen texture and background texture;
+        6. calculate the new particles positions
+            (in the update shader) and encode them in the
+            nextTracersPosition texture;
+        7. swap nextTracersPosition texture and
+            currentTracersPosition texture;
     """
     def __init__(self, width, height, field, **kargs):
         """ Animate 2D vector field
@@ -110,7 +128,7 @@ class FieldAnimation(object):
         self.palette = True
         self.color = (0.5, 1.0, 1.0)
         self.pointSize = 1.0
-        self._tracersCount = 10000        
+        self._tracersCount = 10000
         self.fieldScaling = 1.0
 
         # These are fixed
@@ -127,7 +145,7 @@ class FieldAnimation(object):
         model = np.dot(T, S)
         # View matrix
         view = np.eye(4)
-        
+
         # Projection matrix
         proj = np.eye(4)
         self._MVP = np.dot(model, np.dot(view, proj))
@@ -208,7 +226,7 @@ class FieldAnimation(object):
 
             Args:
                 field (np.ndarray): 2D vector field
-        """       
+        """
         # Automatic field scalking
         self.fieldScaling = self.speedFactor*0.01/field.max()
 
@@ -278,11 +296,11 @@ class FieldAnimation(object):
     def _initTracers(self):
         """ Initialize the tracers positions
         """
-        
+
         # Create a buffer for the tracers
-        #self.emptyPixels = np.ones((self.w_width * self.w_height * 4), np.uint8)
-        self.emptyPixels = np.zeros((self.w_width * self.w_height * 4), np.uint8)
-        
+        self.emptyPixels = np.zeros((self.w_width * self.w_height * 4),
+                np.uint8)
+
         # Initial random tracers position
         self.tracers =  np.asarray(255.0 * np.random.random(
                 self._tracersCount * 4), dtype=np.uint8, order='C')
@@ -313,7 +331,8 @@ class FieldAnimation(object):
                 dtype=np.float32, order='C')
 
         if self.options.image is not None:
-            self.imageTexture = Texture(data=self.options.image, dtype=gl.GL_UNSIGNED_BYTE)
+            self.imageTexture = Texture(data=self.options.image,
+                    dtype=gl.GL_UNSIGNED_BYTE)
         self.modulusTexture = Texture(data=self.modulus, dtype=gl.GL_FLOAT)
 
         ## VAO index
@@ -608,4 +627,3 @@ class FieldAnimation(object):
         self._currentTracersPos = self._nextTracersPos
 
         self.resetRenderingTarget()
-

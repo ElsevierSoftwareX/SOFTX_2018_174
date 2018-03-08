@@ -13,7 +13,7 @@ import imgui
 from imgui.integrations.glfw import GlfwRenderer
 
 # Local imports
-from fieldAnimation import FieldAnimation
+from fieldAnimation.fieldAnimation import FieldAnimation
 
 import glfw
 
@@ -109,43 +109,7 @@ def createField(eq='Spiral ccw', m=64, n=64):
         V = np.load('vy.npy')[::-1]
         r,c = U.shape
         Y, X = np.mgrid[0:r, 0:c]
-        
-        ############################################################
-        import pylab as plt
-        from cubehelix import cubehelix
-        from matplotlib.colors import LinearSegmentedColormap as LSC
 
-        nlev = 256
-    
-        cc = cubehelix(startHue=240,endHue=-300,minSat=0.2,maxSat=5.0,minLight=.5,maxLight=.9,gamma=.9)
-        data = np.linspace(0.0, 1.0, nlev)
-    
-        cmap = cc[(255.0*data).astype(int)]
-    
-        cm = LSC.from_list('cubehelix_map', np.c_[cc,np.ones(len(cc))])         
-
-        
-        fig = plt.figure(figsize=(10,10), dpi=100)
-        ax = fig.add_subplot(111)
-
-        # Plot the streamlines with an appropriate colormap and arrow style
-        
-        color = np.hypot(U, V)
-        p = ax.pcolormesh(X,Y,color, cmap=cm)
-        ax.streamplot(X, Y, U, V, linewidth=1, color='w',
-        #ax.streamplot(X, Y, U, V, color=color, linewidth=1,
-                    density=2, arrowstyle='->', arrowsize=1.5)
-
-        #ax.set_xlabel('$x$')
-        #ax.set_ylabel('$y$')
-        ax.set_xlim(0,200)
-        ax.set_ylim(0,80)
-        #ax.set_aspect('equal')
-        plt.colorbar(p)
-        plt.savefig('gmod.png')
-        ############################################################
-        
-        
     else:
         raise SystemExit("Unknown field. Giving up...")
 
@@ -167,13 +131,13 @@ def userInterface(renderer, graphicItem, app):
     if not toOpen:
         app.restoreKeyCallback()
         return toOpen
-    
+
     # field to show
     current = app.ifield
     changed, current = imgui.combo('Field', current, list(CHOICES))
     if changed:
         app.setField(current)
-    
+
     # Speed Rate
     changed, speed = imgui.drag_float('Speed',
         graphicItem.speedFactor, 0.01, 0.0, 10.0)
@@ -191,7 +155,7 @@ def userInterface(renderer, graphicItem, app):
         graphicItem.dropRateBump, 0.01, 0.001, 1.0)
     if changed:
         graphicItem.dropRateBump = dropRateBump
-    
+
     # Unbknown const
     changed, opacity = imgui.drag_float('Opacity',
         graphicItem.fadeOpacity, 0.001, 0.900, 0.999, '%.4f')
@@ -246,7 +210,7 @@ def userInterface(renderer, graphicItem, app):
 class GLApp(glfwApp):
     def __init__(self, title, width, height, options):
         super(GLApp, self).__init__(title, width, height)
-        
+
         if options.gui:
             self._renderer = GlfwRenderer(self.window(), True)
         else:
@@ -266,7 +230,7 @@ class GLApp(glfwApp):
         self._fps = 0
         self.options = options
 
-    def renderScene(self):       
+    def renderScene(self):
         super(GLApp, self).renderScene()
         self._fa.draw()
         self._fps += 1
@@ -285,13 +249,13 @@ class GLApp(glfwApp):
             # Draw the GUI
             if self._renderer is None:
                 self._renderer = GlfwRenderer(self.window(), True)
-               
+
         super(GLApp, self).onKeyboard(window, key, scancode, action, mode)
-    
+
     def onResize(self, window, width, height):
         gl.glViewport(0, 0, width, height)
         self._fa.setSize(width, height)
-        
+
     def setField(self, ifield):
         field = createField(CHOICES[ifield])
         self._fa.setField(field)

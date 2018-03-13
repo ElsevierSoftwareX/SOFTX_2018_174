@@ -106,18 +106,19 @@ class FieldAnimation(object):
         7. swap nextTracersPosition texture and
             currentTracersPosition texture;
     """
-    def __init__(self, width, height, field, **kargs):
+    def __init__(self, width, height, field, computeSahder=False,
+            image=None):
         """ Animate 2D vector field
 
             Args:
                 width (int): width in pixels
                 height (int): height in pixels
                 field (np.ndarray): 2D vector field
-                **kargs(dict): options  dictionary:
-                    options['cs'] = True selects the compute shader version
+                cs = True selects the compute shader version
+                image = Optional background image
         """
-        if kargs:
-            self.options = kargs.get('options', None)
+        self.useComputeShader = computeSahder
+        self.imageFileName = image
         # Parameters that can be changed later
         self.periodic = True
         self.drawField = False
@@ -129,7 +130,7 @@ class FieldAnimation(object):
         self.color = (0.5, 1.0, 1.0)
         self.pointSize = 1.0
         self._tracersCount = 10000
-        self.fieldScaling = 1.0
+        self.autoscale = 1.0
 
         # These are fixed
         self.w_width = width
@@ -148,7 +149,8 @@ class FieldAnimation(object):
 
         # Projection matrix
         proj = np.eye(4)
-        self._MVP = np.dot(model, np.dot(view, proj))
+        self.drawMVP = np.dot(model, np.dot(view, proj))
+        self.fieldMVP = np.eye(4)
 
         # CubeHelix color palette parameters
         cubeHelixParams =(
@@ -168,7 +170,9 @@ class FieldAnimation(object):
         # Create Shader program and uniforms for the vector field
         self.fieldProgram = Shader(vertex='field.vert', fragment='field.frag',
                 path=GLSLDIR)
-        self.fieldProgram.addUniforms((('gMap', 'i'), ) + cubeHelixParams)
+        self.fieldProgram.addUniforms((('gMap', 'i'),
+                ('MVP', 'mat4'),
+                ) + cubeHelixParams)
 
         # Create Shader program and uniforms for the tracers
         self.drawProgram = Shader(vertex='draw.vert', fragment='draw.frag',
@@ -191,13 +195,13 @@ class FieldAnimation(object):
             ('u_opacity', 'f')))
 
         # Create image background shader
-        if self.options.image is not None:
+        if self.imageFileName:
             self.imageProgram = Shader(vertex='field.vert',
                     fragment='image.frag', path=GLSLDIR)
             self.imageProgram.addUniform('gMap', 'i')
 
         # Create Shader program and uniforms for updating the tracers position
-        if self.options.cs:
+        if self.useComputeShader:
             self.updateProgram = Shader(compute='update.comp', path=GLSLDIR)
         else:
             self.updateProgram = Shader(vertex='quad.vert',
@@ -228,7 +232,7 @@ class FieldAnimation(object):
                 field (np.ndarray): 2D vector field
         """
         # Automatic field scalking
-        self.fieldScaling = self.speedFactor*0.01/field.max()
+        self.autoscale = self.speedFactor * 0.01 / field.max()
 
         # Prepare the data
         self._fieldAsRGB, uMin, uMax, vMin, vMax = field2RGB(field)
@@ -330,8 +334,8 @@ class FieldAnimation(object):
         values['a_index'] = np.asarray(self.iTracers,
                 dtype=np.float32, order='C')
 
-        if self.options.image is not None:
-            self.imageTexture = Texture(data=self.options.image,
+        if self.imageFileName:
+            self.imageTexture = Texture(data=self.imageFileName,
                     dtype=gl.GL_UNSIGNED_BYTE)
         self.modulusTexture = Texture(data=self.modulus, dtype=gl.GL_FLOAT)
 
@@ -394,14 +398,14 @@ class FieldAnimation(object):
         if self.drawField:
             self.drawModulus(1.0)
 
-        if self.options.image is not None:
+        if self.imageFileName:
             self.drawImage()
 
         self.fieldTexture.bind(0)
         ## Bind texture with random tracers position
         self._currentTracersPos.bind(1)
         self.drawScreen()
-        if self.options.cs:
+        if self.useComputeShader:
             self.updateTracersCS()
         else:
             self.updateTracers()
@@ -454,6 +458,7 @@ class FieldAnimation(object):
             #))
         self.fieldProgram.setUniforms((
             ('gMap', 0),
+            ('MVP', self.fieldMVP),
             ('start', 1.0),
             ('gamma', 0.9),
             ('rot', -5.3),
@@ -517,6 +522,7 @@ class FieldAnimation(object):
         self.screenProgram.unbind()
         gl.glBindBuffer(gl.GL_ELEMENT_ARRAY_BUFFER, 0)
         gl.glBindVertexArray(0)
+        texture.unbind()
 
     def drawTracers(self):
         """ Draw the tracers on the screen
@@ -528,7 +534,7 @@ class FieldAnimation(object):
             #('u_field', 0),
             #('palette', bool(self.palette)),
             #('u_tracers', 1),
-            #('MVP', self._MVP),
+            #('MVP', self.drawMVP),
             #('pointSize', self.pointSize),
             ## CubeHelix
             #('start', 0.5),
@@ -548,7 +554,7 @@ class FieldAnimation(object):
             ('u_field', 0),
             ('palette', bool(self.palette)),
             ('u_tracers', 1),
-            ('MVP', self._MVP),
+            ('MVP', self.drawMVP),
             ('pointSize', self.pointSize),
             # CubeHelix
             ('start', 1.0),
@@ -589,7 +595,7 @@ class FieldAnimation(object):
             ('u_speed_factor', self.speedFactor),
             ('u_drop_rate', self.dropRate),
             ('u_drop_rate_bump', self.dropRateBump),
-            ('fieldScaling', self.fieldScaling),
+            ('fieldScaling', self.autoscale),
             ('u_fieldRes', self._fieldAsRGB.shape),
             ))
         gl.glDrawElements(gl.GL_TRIANGLES, 6, gl.GL_UNSIGNED_INT,
@@ -611,7 +617,7 @@ class FieldAnimation(object):
             ('u_speed_factor', self.speedFactor),
             ('u_drop_rate', self.dropRate),
             ('u_drop_rate_bump', self.dropRateBump),
-            ('fieldScaling', self.fieldScaling),
+            ('fieldScaling', self.autoscale),
             ('u_fieldRes', self._fieldAsRGB.shape),
             ))
 

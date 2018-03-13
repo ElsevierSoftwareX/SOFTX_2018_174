@@ -82,11 +82,11 @@ def createField(eq='Spiral ccw', m=64, n=64):
         U = X**2
         V = -Y
     elif eq == 'Reaction diffusion':
-        U = 2 * (Y - X) + X * (1 - X**2)
-        V = -2 * (Y - X) + Y * (1 - Y**2)
+        U = 2 * (Y - X) + X * (1 - X ** 2)
+        V = -2 * (Y - X) + Y * (1 - Y ** 2)
     elif eq == 'Positive invariant set':
         U = Y.copy()
-        V = - X + Y * (1 - X**2 - 2 * Y**2)
+        V = - X + Y * (1 - X ** 2 - 2 * Y ** 2)
     elif eq == 'Spiral ccw':
         origin = (0.8, 0.8)
         X, Y = X - origin[0], Y - origin[1]
@@ -139,6 +139,8 @@ def userInterface(renderer, graphicItem, app):
         app.setField(current)
 
     # Speed Rate
+    #drag_float(str label, float value, float change_speed=1.0,
+    #   float max_value=0.0, float min_value=0.0,
     changed, speed = imgui.drag_float('Speed',
         graphicItem.speedFactor, 0.01, 0.0, 10.0)
     if changed:
@@ -217,13 +219,15 @@ class GLApp(glfwApp):
             self._renderer = None
 
         if options.image is not None:
-            options.image = np.flipud(np.asarray(Image.open(options.image), np.uint8))
+            options.image = np.flipud(
+                    np.asarray(Image.open(options.image), np.uint8))
 
         self.ifield = CHOICES.index(options.choose)
         field = createField(CHOICES[self.ifield])
 
         # Add Field Animation overlay
-        self._fa = FieldAnimation(width, height, field, options=options)
+        self._fa = FieldAnimation(width, height, field, options.cs,
+                options.image)
         if options.draw_field:
             self._fa.drawField = True
         self._t0 = time.time()

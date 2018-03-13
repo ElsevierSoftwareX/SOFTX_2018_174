@@ -58,7 +58,7 @@ class Texture(object):
         gl.glBindTexture(gl.GL_TEXTURE_2D, 0);
 
     def bind(self, texUnit=0):
-        gl.glActiveTexture(gl.GL_TEXTURE0+texUnit)
+        gl.glActiveTexture(gl.GL_TEXTURE0 + texUnit)
         gl.glBindTexture(gl.GL_TEXTURE_2D, self._handle)
 
     def handle(self):

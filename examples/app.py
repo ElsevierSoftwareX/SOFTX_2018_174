@@ -235,7 +235,6 @@ class GLApp(glfwApp):
         self._t0 = time.time()
         self._fps = 0
         self.options = options
-        print(glInfo())
 
     def renderScene(self):
         super(GLApp, self).renderScene()

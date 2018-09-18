@@ -18,12 +18,12 @@ Python is their favourite programming language since 2006.
 
 The authors:
 
-**Roberto Vidmar, Nicola Creati**
+**Nicola Creati, Roberto Vidmar**
 
-.. image:: images/vidmar.jpg
+.. image:: images/creati.jpg
    :height: 134 px
    :width:  100 px 
-.. image:: images/creati.jpg
+.. image:: images/vidmar.jpg
    :height: 134 px
    :width:  100 px 
 

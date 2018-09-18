@@ -1,14 +1,16 @@
-# FieldAnimation #
-FIELDANIMATION a Python package to handle quantity-aware configuration files
+# FIELDANIMATION #
+FIELDANIMATION a Python package to animate 2D vector fields.
 
-### In short ###
+### What is it? ###
 Field Animation is a Python package for the visualization of 2D vector fields
-that exploits the capabilities of modern graphic cards. Vector fields are rep-
-resented through particles that move along the flow lines of the field at a
-speed and color proportional to its modulus in an OpenGL window. Inter-
-active control of speed, color and number of animated particles is possible as
-the whole rendering process happens in the GPU in real time. A background
-image can be shown to add information for the interpretation of the results.
+that exploits the capabilities of modern graphic cards. Vector fields are
+represented through particles that move along the flow lines of the field at
+a speed and color proportional to its modulus in an OpenGL window.
+
+Interactive control of speed, color and number of animated particles is
+possible as the whole rendering process happens in the GPU in real time.
+A background image can be shown to add information for the interpretation of
+the results.
 
 Highlights:
 
@@ -18,7 +20,7 @@ Highlights:
 
 ### Where is the documentation? ###
 
-[Here!](https://ncreati.bitbucket.io/fieldAnimation/)
+[Here!](https://ncreati.bitbucket.io/fieldanimation/)
 
 ### Who do I talk to? ###
 

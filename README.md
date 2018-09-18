@@ -20,10 +20,15 @@ Highlights:
 
 ### Where is the documentation? ###
 
-[Here!](https://ncreati.bitbucket.io/fieldanimation/)
+[Here!](https://bvidmar.bitbucket.io/fieldanimation/)
 
 ### Who do I talk to? ###
 
 * [Nicola Creati](mailto:ncreati@inogs.it)
 
 * [Roberto Vidmar](mailto:rvidmar@inogs.it)
+
+### NOTE: ###
+    To run the example application in the examples directory uncomment
+    the first threee requirements in *requirements.txt* or manually install
+    Pillow, imgui and glfw.

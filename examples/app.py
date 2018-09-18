@@ -13,7 +13,7 @@ import imgui
 from imgui.integrations.glfw import GlfwRenderer
 
 # Local imports
-from fieldanimation import FieldAnimation
+from fieldanimation import FieldAnimation, glInfo
 
 import glfw
 
@@ -103,7 +103,6 @@ def createField(eq='Spiral ccw', m=64, n=64):
         Y, X = np.mgrid[0:r, 0:c]
         U = field[:, :, 0][::-1]
         V = - field[:, :, 1][::-1]
-        # print(r,c)
     elif eq == 'gmod':
         U = np.load('vx.npy')[::-1]
         V = np.load('vy.npy')[::-1]
@@ -225,8 +224,15 @@ class GLApp(glfwApp):
         self.ifield = CHOICES.index(options.choose)
         field = createField(CHOICES[self.ifield])
 
+        glversion = float("%d.%d" % (glInfo()['major'], glInfo()['minor']))
+        if not options.use_fragment and glversion < 4.3:
+            print("WARNING..... Compute shaders not available with OpenGL"
+                    " ver. %.1f." % glversion)
+            useCompute = False
+        else:
+            useCompute = True
         # Add Field Animation overlay
-        self._fa = FieldAnimation(width, height, field, options.cs,
+        self._fa = FieldAnimation(width, height, field, useCompute,
                 options.image)
         if options.draw_field:
             self._fa.drawField = True
@@ -286,8 +292,8 @@ if __name__ == "__main__":
     parser.add_argument('-p', '--fps', action='store_true', default=False,
             help=("Count Frames Per Second ")
             )
-    parser.add_argument('-k', '--cs', action='store_true', default=False,
-            help=("Use compute shader ")
+    parser.add_argument('-u', '--use-fragment', action='store_true',
+            default=False, help=("Use fragment instead of compute shader ")
             )
     parser.add_argument('-g', '--gui', action='store_true', default=False,
             help=("Add gui control window ")

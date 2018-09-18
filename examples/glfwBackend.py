@@ -45,8 +45,6 @@ class glfwApp(metaclass=ABCMeta):
                 self._title, None, None)
 
         glfw.set_window_size_callback(self._window, self.onResize)
-        # Not implemented :-(
-        #glfw.set_window_maximize_callback(self._window, self.onResize)
 
         if not self._window:
             glfw.terminate()

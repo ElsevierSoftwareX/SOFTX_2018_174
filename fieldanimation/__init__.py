@@ -124,14 +124,14 @@ class FieldAnimation(object):
         self.periodic = True
         self.drawField = False
         self.fadeOpacity = 0.996
-        self.dropRateBump = 0.01
+        self.decayBoost = 0.01
         self.speedFactor = 0.25
-        self.dropRate = 0.003
+        self.decay = 0.003
         self.palette = True
         self.color = (0.5, 1.0, 1.0)
         self.pointSize = 1.0
         self._tracersCount = 10000
-        self.autoscale = 1.0
+        self.fieldScaling = 1.0
 
         # These are fixed
         self.w_width = width
@@ -215,8 +215,8 @@ class FieldAnimation(object):
                 ('u_fieldMax', '2f'),
                 ('u_rand_seed', 'f'),
                 ('u_speed_factor', 'f'),
-                ('u_drop_rate', 'f'),
-                ('u_drop_rate_bump', 'f'),
+                ('u_decay', 'f'),
+                ('u_decay_boost', 'f'),
                 ('fieldScaling', 'f'),
                 ('periodic', 'b')))
 
@@ -233,7 +233,7 @@ class FieldAnimation(object):
                 field (np.ndarray): 2D vector field
         """
         # Automatic field scalking
-        self.autoscale = self.speedFactor * 0.01 / field.max()
+        self.fieldScaling = self.speedFactor * 0.01 / field.max()
 
         # Prepare the data
         self._fieldAsRGB, uMin, uMax, vMin, vMax = field2RGB(field)
@@ -443,20 +443,6 @@ class FieldAnimation(object):
         """
         self.modulusTexture.bind()
         self.fieldProgram.bind()
-        #self.fieldProgram.setUniforms((
-            #('gMap', 0),
-            #('start', 0.5),
-            #('gamma', 1.0),
-            #('rot', -1.5),
-            #('reverse', False),
-            #('minSat', 0.0),
-            #('maxSat', 1.0),
-            #('minLight', 0.0),
-            #('maxLight', 1.0),
-            #('startHue', 240.0),
-            #('endHue', -300.0),
-            #('useHue', False),
-            #))
         self.fieldProgram.setUniforms((
             ('gMap', 0),
             ('MVP', self.fieldMVP),
@@ -531,26 +517,6 @@ class FieldAnimation(object):
         gl.glBindVertexArray(self._vao)
         self.drawProgram.bind()
 
-        #self.drawProgram.setUniforms((
-            #('u_field', 0),
-            #('palette', bool(self.palette)),
-            #('u_tracers', 1),
-            #('MVP', self.drawMVP),
-            #('pointSize', self.pointSize),
-            ## CubeHelix
-            #('start', 0.5),
-            #('gamma', 1.0),
-            #('rot', -1.5),
-            #('reverse', False),
-            #('minSat', 0.0),
-            #('maxSat', 1.0),
-            #('minLight', 0.0),
-            #('maxLight', 1.0),
-            #('startHue', 240.0),
-            #('endHue', -300.0),
-            #('useHue', False),
-            #('u_tracersRes', float(self.tracersRes)),
-            #))
         self.drawProgram.setUniforms((
             ('u_field', 0),
             ('palette', bool(self.palette)),
@@ -594,9 +560,9 @@ class FieldAnimation(object):
             ('periodic', self.periodic),
             ('u_rand_seed', np.random.random()),
             ('u_speed_factor', self.speedFactor),
-            ('u_drop_rate', self.dropRate),
-            ('u_drop_rate_bump', self.dropRateBump),
-            ('fieldScaling', self.autoscale),
+            ('u_decay', self.decay),
+            ('u_decay_boost', self.decayBoost),
+            ('fieldScaling', self.fieldScaling),
             ('u_fieldRes', self._fieldAsRGB.shape),
             ))
         gl.glDrawElements(gl.GL_TRIANGLES, 6, gl.GL_UNSIGNED_INT,
@@ -616,9 +582,9 @@ class FieldAnimation(object):
             ('periodic', self.periodic),
             ('u_rand_seed', np.random.random()),
             ('u_speed_factor', self.speedFactor),
-            ('u_drop_rate', self.dropRate),
-            ('u_drop_rate_bump', self.dropRateBump),
-            ('fieldScaling', self.autoscale),
+            ('u_decay', self.decay),
+            ('u_decay_boost', self.decayBoost),
+            ('fieldScaling', self.fieldScaling),
             ('u_fieldRes', self._fieldAsRGB.shape),
             ))
 

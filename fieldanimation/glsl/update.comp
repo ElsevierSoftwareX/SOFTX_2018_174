@@ -9,8 +9,8 @@ uniform vec2 u_fieldMin;
 uniform vec2 u_fieldMax;
 uniform float u_rand_seed;
 uniform float u_speed_factor;
-uniform float u_drop_rate;
-uniform float u_drop_rate_bump;
+uniform float u_decay;
+uniform float u_decay_boost;
 
 uniform float fieldScaling;
 uniform bool periodic;
@@ -65,10 +65,8 @@ vec2 random_vector(float seed) {
 }
 
 //-----------------------------------------------------------------------------
-// Field modulus lookup; use manual bilinear filtering based on 4 adjacent
-// pixels for smooth interpolation
+// Bilinear filtering based on 4 adjacent
 vec2 lookupField(const vec2 uv) {
-    // return texture2D(u_field, uv).rg; // lower-res hardware filtering
     vec2 px = 1.0 / u_fieldRes;
     vec2 vc = (floor(uv * u_fieldRes)) * px;
     vec2 f = fract(uv * u_fieldRes);
@@ -105,15 +103,14 @@ void main() {
 
     vec2 seed = (pos + uv)  * u_rand_seed;
 
-    // drop rate is a chance a tracer will restart at random position,
+    // decay is a chance a tracer will restart at random position,
     // to avoid degeneration.
     // Solve the problem of areas with fast points that are denser than
     // areas with slow points.
     // Increase reset rate for fast tracers   
     float new_seed = random_vec2(seed);
-//     float drop_rate = u_drop_rate + speed_t;
-    float drop_rate = u_drop_rate + speed_t * u_drop_rate_bump;
-    float drop = step(1.0 - drop_rate, new_seed);
+    float decay = u_decay + speed_t * u_decay_boost;
+    float drop = step(1.0 - decay, new_seed);
 
     vec2 random_pos = random_vector(new_seed);
     pos = mix(pos, random_pos, drop);

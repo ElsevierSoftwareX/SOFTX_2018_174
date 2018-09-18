@@ -13,9 +13,7 @@ import imgui
 from imgui.integrations.glfw import GlfwRenderer
 
 # Local imports
-from fieldanimation import FieldAnimation
-
-import glfw
+from fieldanimation import FieldAnimation, glInfo
 
 CHOICES = (
     'epole',
@@ -139,24 +137,22 @@ def userInterface(renderer, graphicItem, app):
         app.setField(current)
 
     # Speed Rate
-    #drag_float(str label, float value, float change_speed=1.0,
-    #   float max_value=0.0, float min_value=0.0,
     changed, speed = imgui.drag_float('Speed',
         graphicItem.speedFactor, 0.01, 0.0, 10.0)
     if changed:
         graphicItem.speedFactor = speed
 
-    # Drop Rate
-    changed, dropRate = imgui.drag_float('Drop rate',
-        graphicItem.dropRate, 0.001, 0.001, 1.0)
+    # Decay
+    changed, decay = imgui.drag_float('Decay',
+        graphicItem.decay, 0.001, 0.001, 1.0)
     if changed:
-        graphicItem.dropRate = dropRate
+        graphicItem.decay = decay
 
     # Drop Rate Bump
-    changed, dropRateBump = imgui.drag_float('Drop rate bump',
-        graphicItem.dropRateBump, 0.01, 0.001, 1.0)
+    changed, decayBoost = imgui.drag_float('Decay boost',
+        graphicItem.decayBoost, 0.01, 0.001, 1.0)
     if changed:
-        graphicItem.dropRateBump = dropRateBump
+        graphicItem.decayBoost = decayBoost
 
     # Unbknown const
     changed, opacity = imgui.drag_float('Opacity',
@@ -233,6 +229,7 @@ class GLApp(glfwApp):
         self._t0 = time.time()
         self._fps = 0
         self.options = options
+        print(glInfo())
 
     def renderScene(self):
         super(GLApp, self).renderScene()

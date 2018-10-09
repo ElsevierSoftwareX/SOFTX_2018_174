@@ -25,24 +25,32 @@ def glInfo():
         Returns:
             OpenGL information dict
     """
-    count = np.zeros(3, dtype=np.int32)
-    size = np.zeros(3, dtype=np.int32)
-    count[0] = gl.glGetIntegeri_v(gl.GL_MAX_COMPUTE_WORK_GROUP_COUNT, 0)[0]
-    count[1] = gl.glGetIntegeri_v(gl.GL_MAX_COMPUTE_WORK_GROUP_COUNT, 1)[0]
-    count[2] = gl.glGetIntegeri_v(gl.GL_MAX_COMPUTE_WORK_GROUP_COUNT, 2)[0]
-    size[0] = gl.glGetIntegeri_v(gl.GL_MAX_COMPUTE_WORK_GROUP_SIZE, 0)[0]
-    size[1] = gl.glGetIntegeri_v(gl.GL_MAX_COMPUTE_WORK_GROUP_SIZE, 1)[0]
-    size[2] = gl.glGetIntegeri_v(gl.GL_MAX_COMPUTE_WORK_GROUP_SIZE, 2)[0]
-    return {
-            'major': gl.glGetIntegerv(gl.GL_MAJOR_VERSION),
-            'minor': gl.glGetIntegerv(gl.GL_MINOR_VERSION),
-            'version': gl.glGetString(gl.GL_VERSION),
-            'vendor': gl.glGetString(gl.GL_VENDOR),
-            'renderer': gl.glGetString(gl.GL_RENDERER),
-            'glsl': gl.glGetString(gl.GL_SHADING_LANGUAGE_VERSION),
-            'maxComputeWorkGroupCount': count,
-            'maxComputeWorkGroupSize': size,
+    major = gl.glGetIntegerv(gl.GL_MAJOR_VERSION)
+    minor = gl.glGetIntegerv(gl.GL_MINOR_VERSION)
+    version = gl.glGetString(gl.GL_VERSION)
+    vendor = gl.glGetString(gl.GL_VENDOR)
+    renderer = gl.glGetString(gl.GL_RENDERER)
+    glsl = gl.glGetString(gl.GL_SHADING_LANGUAGE_VERSION)
+    glversion = float("%d.%d" % (major, minor))
+    retval = {
+            'glversion': glversion,
+            'version': version,
+            'vendor': vendor,
+            'renderer': renderer,
+            'glsl': glsl,
             }
+    if glversion >= 4.3:
+        count = np.zeros(3, dtype=np.int32)
+        size = np.zeros(3, dtype=np.int32)
+        count[0] = gl.glGetIntegeri_v(gl.GL_MAX_COMPUTE_WORK_GROUP_COUNT, 0)[0]
+        count[1] = gl.glGetIntegeri_v(gl.GL_MAX_COMPUTE_WORK_GROUP_COUNT, 1)[0]
+        count[2] = gl.glGetIntegeri_v(gl.GL_MAX_COMPUTE_WORK_GROUP_COUNT, 2)[0]
+        size[0] = gl.glGetIntegeri_v(gl.GL_MAX_COMPUTE_WORK_GROUP_SIZE, 0)[0]
+        size[1] = gl.glGetIntegeri_v(gl.GL_MAX_COMPUTE_WORK_GROUP_SIZE, 1)[0]
+        size[2] = gl.glGetIntegeri_v(gl.GL_MAX_COMPUTE_WORK_GROUP_SIZE, 2)[0]
+        retval['maxComputeWorkGroupCount'] = count
+        retval['maxComputeWorkGroupSize'] = size
+    return retval
 
 #------------------------------------------------------------------------------
 def field2RGB(field):

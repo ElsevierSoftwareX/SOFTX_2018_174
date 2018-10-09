@@ -220,7 +220,7 @@ class GLApp(glfwApp):
         self.ifield = CHOICES.index(options.choose)
         field = createField(CHOICES[self.ifield])
 
-        glversion = float("%d.%d" % (glInfo()['major'], glInfo()['minor']))
+        glversion = glInfo()['glversion']
         if not options.use_fragment and glversion < 4.3:
             print("WARNING..... Compute shaders not available with OpenGL"
                     " ver. %.1f." % glversion)
